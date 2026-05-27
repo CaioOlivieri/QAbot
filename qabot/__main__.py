@@ -1,17 +1,16 @@
-import os
+import sys
 
-from dotenv import load_dotenv
-from google import genai
+from qabot.agent.core import run_agent
 
 
 def main() -> int:
-    load_dotenv(".env.keys")
-    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents="Responda apenas: API funcionando.",
-    )
-    print(response.text)
+    if len(sys.argv) < 2:
+        print("Usage: qabot analyze <project_path>")
+        return 1
+
+    project_path: str = sys.argv[1]
+    result: str = run_agent(project_path)
+    print(result)
     return 0
 
 
