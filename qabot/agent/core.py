@@ -27,7 +27,8 @@ class AgentState:
 
 def _call_llm(client: genai.Client, messages: list[dict[str, str]]) -> str:
     contents = [
-        {"role": m["role"], "parts": [m["content"]]} for m in messages
+        types.Content(role=m["role"], parts=[types.Part(text=m["content"])])
+        for m in messages
     ]
     response = client.models.generate_content(
         model="gemini-2.5-flash",
@@ -39,22 +40,28 @@ def _call_llm(client: genai.Client, messages: list[dict[str, str]]) -> str:
     return response.text
 
 
-def _dispatch(action: str, action_input: str, project_path: str) -> str:
+def _ensure_dict(data: str | dict[str, object]) -> dict[str, object]:
+    return data if isinstance(data, dict) else json.loads(data)
+
+
+def _dispatch(
+    action: str, action_input: str | dict[str, object], project_path: str
+) -> str:
     if action == "list_files":
         return str(list_files(action_input))
     if action == "read_file":
         return read_file(action_input)
     if action == "write_file":
-        params = json.loads(action_input)
-        write_file(params["path"], params["content"])
+        params = _ensure_dict(action_input)
+        write_file(str(params["path"]), str(params["content"]))
         return "File written successfully."
     if action == "run_command":
-        params = json.loads(action_input)
-        cwd = params.get("cwd", project_path)
+        params = _ensure_dict(action_input)
+        cwd = str(params.get("cwd", project_path))
         retcode, stdout, stderr = run_command(params["cmd"], cwd)
         return f"Return code: {retcode}\nStdout:\n{stdout}\nStderr:\n{stderr}"
     if action == "parse_coverage":
-        data = parse_coverage(action_input)
+        data = parse_coverage(str(action_input))
         return str(data)
     return f"Unknown tool: {action}"
 
