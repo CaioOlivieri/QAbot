@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from dataclasses import dataclass
 
 from dotenv import load_dotenv
@@ -31,7 +32,7 @@ def _call_llm(client: genai.Client, messages: list[dict[str, str]]) -> str:
         for m in messages
     ]
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-2.5-flash-lite",
         contents=contents,
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT,
@@ -76,7 +77,17 @@ def run_agent(project_path: str) -> str:
     ]
 
     for iteration in range(state.max_iterations):
-        response_text = _call_llm(client, messages)
+        while True:
+            try:
+                response_text = _call_llm(client, messages)
+                break
+            except Exception as exc:
+                exc_text = str(exc)
+                if "429" in exc_text or "RESOURCE_EXHAUSTED" in exc_text:
+                    print("Rate limited. Sleeping 60s before retry...")
+                    time.sleep(60)
+                else:
+                    raise
         messages.append({"role": "model", "content": response_text})
 
         cleaned = response_text.strip()
@@ -97,10 +108,17 @@ def run_agent(project_path: str) -> str:
             })
             continue
 
+        thought: str | None = parsed.get("thought")
+        action: str | None = parsed.get("action")
+        print(f"--- Iteration {iteration} ---")
+        if thought:
+            print(f"Thought: {thought}")
+        if action:
+            print(f"Action: {action}")
+
         if "final_answer" in parsed:
             return parsed["final_answer"]
 
-        action: str | None = parsed.get("action")
         action_input: str = parsed.get("action_input", "")
 
         if action:
