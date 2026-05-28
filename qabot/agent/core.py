@@ -8,6 +8,7 @@ from google import genai
 from google.genai import types
 
 from qabot.agent.prompts import SYSTEM_PROMPT
+from qabot.tools.api import detect_api_endpoints, test_api_endpoint
 from qabot.tools.fs import list_files, read_file, write_file
 from qabot.tools.runner import parse_coverage, run_command
 
@@ -17,6 +18,8 @@ TOOLS: dict[str, object] = {
     "write_file": write_file,
     "run_command": run_command,
     "parse_coverage": parse_coverage,
+    "detect_api_endpoints": detect_api_endpoints,
+    "test_api_endpoint": test_api_endpoint,
 }
 
 
@@ -64,6 +67,17 @@ def _dispatch(
     if action == "parse_coverage":
         data = parse_coverage(str(action_input))
         return str(data)
+    if action == "detect_api_endpoints":
+        result = detect_api_endpoints(str(action_input))
+        return str(result)
+    if action == "test_api_endpoint":
+        params = _ensure_dict(action_input)
+        result = test_api_endpoint(
+            url=params["url"],
+            method=params.get("method", "GET"),
+            expected_status=params.get("expected_status", 200),
+        )
+        return str(result)
     return f"Unknown tool: {action}"
 
 
