@@ -33,6 +33,7 @@ ruff check .  # lint
 ## Architecture
 
 - `tools/api.py` — `detect_api_endpoints`, `test_api_endpoint`
+- `tools/analyzer.py` — # static analysis — AST + LLM semantic
 
 ---
 
