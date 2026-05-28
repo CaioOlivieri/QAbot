@@ -24,8 +24,9 @@ python -m qabot <project_path>
 ```
 
 ```bash
-pytest        # run tests
-ruff check .  # lint
+pytest
+ruff format .
+ruff check .
 ```
 
 ---
