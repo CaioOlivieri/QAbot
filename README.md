@@ -115,8 +115,9 @@ The agent runs a **ReAct loop** (Reason + Act): at each iteration it reasons abo
 ## Development
 
 ```bash
-pytest          # run tests
-ruff check .    # lint
+pytest
+ruff format .
+ruff check .
 ```
 
 ---
