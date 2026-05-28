@@ -30,6 +30,12 @@ ruff check .  # lint
 
 ---
 
+## Architecture
+
+- `tools/api.py` — `detect_api_endpoints`, `test_api_endpoint`
+
+---
+
 ## Rules
 
 - Update this file before changing architecture
@@ -47,3 +53,4 @@ ruff check .  # lint
 2. Bug detection — static (LLM analysis) + dynamic (pytest failures)
 3. `tests/test_tools.py` and `tests/test_agent.py`
 4. GitHub Actions CI
+5. `tools/api.py` — api testing
