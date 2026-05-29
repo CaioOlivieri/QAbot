@@ -113,13 +113,15 @@ def run_agent(project_path: str) -> str:
         try:
             parsed = json.loads(cleaned)
         except json.JSONDecodeError:
-            messages.append({
-                "role": "user",
-                "content": (
-                    f"Invalid JSON. Please respond with valid JSON only.\n"
-                    f"Raw response: {response_text}"
-                ),
-            })
+            messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        f"Invalid JSON. Please respond with valid JSON only.\n"
+                        f"Raw response: {response_text}"
+                    ),
+                }
+            )
             continue
 
         thought: str | None = parsed.get("thought")
@@ -137,14 +139,18 @@ def run_agent(project_path: str) -> str:
 
         if action:
             result = _dispatch(action, action_input, state.project_path)
-            messages.append({
-                "role": "user",
-                "content": f"Tool result for {action}: {result}",
-            })
+            messages.append(
+                {
+                    "role": "user",
+                    "content": f"Tool result for {action}: {result}",
+                }
+            )
         else:
-            messages.append({
-                "role": "user",
-                "content": "No action or final_answer found in JSON.",
-            })
+            messages.append(
+                {
+                    "role": "user",
+                    "content": "No action or final_answer found in JSON.",
+                }
+            )
 
     return "Max iterations reached without a final answer."
