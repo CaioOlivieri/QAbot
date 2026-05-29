@@ -49,7 +49,7 @@ def parse_pytest_failures(pytest_output: str) -> list[dict[str, str | int]]:
         if state == T:
             m3 = re.match(r"^E\s+", line)
             if m3 is not None and not got_err:
-                content = line[m3.end():]
+                content = line[m3.end() :]
                 if ":" in content:
                     err_type, desc = content.split(":", 1)
                     err_type = err_type.strip()
