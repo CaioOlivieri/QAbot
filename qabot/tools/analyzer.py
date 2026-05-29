@@ -17,34 +17,41 @@ def analyze_file_ast(filepath: str) -> list[dict[str, str | int]]:
             continue
         for handler in node.handlers:
             if handler.type is None:
-                findings.append({
-                    "file": filepath,
-                    "line": handler.lineno,
-                    "severity": "critical",
-                    "category": "bare_except",
-                    "description": "Bare except clause without exception type",
-                })
+                findings.append(
+                    {
+                        "file": filepath,
+                        "line": handler.lineno,
+                        "severity": "critical",
+                        "category": "bare_except",
+                        "description": "Bare except clause without exception type",
+                    }
+                )
                 continue
 
             if isinstance(handler.type, ast.Name) and handler.type.id in (
-                "Exception", "BaseException"
+                "Exception",
+                "BaseException",
             ):
-                findings.append({
-                    "file": filepath,
-                    "line": handler.lineno,
-                    "severity": "warning",
-                    "category": "broad_except",
-                    "description": f"Overly broad except clause ({handler.type.id})",
-                })
+                findings.append(
+                    {
+                        "file": filepath,
+                        "line": handler.lineno,
+                        "severity": "warning",
+                        "category": "broad_except",
+                        "description": f"Overly broad except ({handler.type.id})",
+                    }
+                )
 
             if _is_silent(handler):
-                findings.append({
-                    "file": filepath,
-                    "line": handler.lineno,
-                    "severity": "critical",
-                    "category": "silent_exception",
-                    "description": "Exception handler body only contains pass or ...",
-                })
+                findings.append(
+                    {
+                        "file": filepath,
+                        "line": handler.lineno,
+                        "severity": "critical",
+                        "category": "silent_exception",
+                        "description": "Handler body only contains pass or ...",
+                    }
+                )
 
     return findings
 
