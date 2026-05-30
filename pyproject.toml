@@ -32,7 +32,9 @@ select = ["E", "F", "I", "UP"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+norecursedirs = ["qabot", ".venv", "__pycache__"]
 addopts = "--cov=qabot --cov-report=term-missing"
 
 [tool.coverage.run]
 omit = ["tests/*"]
+
