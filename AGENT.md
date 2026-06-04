@@ -56,3 +56,16 @@ ruff check .
 3. `tests/test_tools.py` and `tests/test_agent.py`
 4. GitHub Actions CI
 5. `tools/api.py` — api testing
+
+## Base de conhecimento (wiki)
+Este repo mantém uma wiki em ./wiki/ (padrão LLM-Wiki). Antes de agir:
+1. Leia wiki/_schema.md e wiki/_estado-de-integracao.md.
+2. Carregue só as páginas relevantes — nunca a wiki inteira.
+3. Conhecimento transversal (Python, B2G, setup WSL) fica na wiki global ~/wiki.
+
+Regra de disciplina (QAbot): só afirme resultado de teste/cobertura/comportamento
+com base em saída real de execução salva em raw/ — nunca por inferência.
+Ao aprender algo durável, faça ingest: atualize a página e o _indice.md.
+
+NOTA: AGENT.md e README.md hoje divergem do código (ver _estado-de-integracao.md).
+Corrija-os junto da Layer 0.
