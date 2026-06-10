@@ -33,8 +33,14 @@ ruff check .
 
 ## Architecture
 
-- `tools/api.py` — `detect_api_endpoints`, `test_api_endpoint`
-- `tools/analyzer.py` — # static analysis — AST + LLM semantic
+- `qabot/__main__.py` — CLI entrypoint
+- `qabot/agent/core.py` — ReAct loop, tool dispatch, findings accumulation
+- `qabot/agent/prompts.py` — LLM system prompt with tool descriptions
+- `qabot/agent/report.py` — deterministic markdown report generation
+- `qabot/tools/api.py` — API endpoint detection and testing
+- `qabot/tools/analyzer.py` — static AST bug scan
+- `qabot/tools/fs.py` — file system operations (list, read, write)
+- `qabot/tools/runner.py` — command execution, coverage parsing, pytest failure classification
 
 ---
 
@@ -49,10 +55,13 @@ ruff check .
 
 ---
 
-## Pending (in order)
+## Knowledge base
 
-1. `qabot/agent/report.py` — markdown report generation
-2. Bug detection — static (LLM analysis) + dynamic (pytest failures)
-3. `tests/test_tools.py` and `tests/test_agent.py`
-4. GitHub Actions CI
-5. `tools/api.py` — api testing
+This repo maintains a wiki in `./wiki/` (LLM-Wiki format). Before any architecture
+change, agents must read:
+1. `wiki/_estado-de-integracao.md` — single source of truth on what is wired
+2. `wiki/_schema.md` — discipline rules for this wiki
+
+Discipline rule (QAbot): only assert test/coverage/behavior based on real
+execution output saved in `wiki/raw/` — never by inference.
+When learning something durable, do ingest: update the page and `_indice.md`.

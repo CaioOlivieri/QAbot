@@ -1,7 +1,8 @@
 from unittest.mock import MagicMock, mock_open, patch
 
 from qabot.tools.analyzer import analyze_file_ast, analyze_project_ast
-from qabot.tools.api import detect_api_endpoints, test_api_endpoint as call_endpoint
+from qabot.tools.api import detect_api_endpoints
+from qabot.tools.api import test_api_endpoint as call_endpoint
 from qabot.tools.fs import list_files, read_file, write_file
 from qabot.tools.runner import parse_coverage, parse_pytest_failures, run_command
 
