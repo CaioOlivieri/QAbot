@@ -1,5 +1,4 @@
 import os
-import platform
 from datetime import datetime
 from pathlib import Path
 
@@ -21,7 +20,13 @@ IGNORED_DIRS = {
     "reports",
 }
 
-VALID_EXTENSIONS = {".py", ".md", ".json", ".txt", ".toml",}
+VALID_EXTENSIONS = {
+    ".py",
+    ".md",
+    ".json",
+    ".txt",
+    ".toml",
+}
 
 SECURITY_PREFIXES = (".env",)
 SECURITY_FILES = {".env.keys"}
@@ -45,13 +50,10 @@ def walk():
     results = []
     for root_dir, dirs, files in os.walk(ROOT):
         root_path = Path(root_dir)
-        rel_base = root_path.relative_to(ROOT)
 
         # Filter directories
         dirs[:] = [
-            d
-            for d in dirs
-            if not should_ignore(root_path / d, str(root_path / d))
+            d for d in dirs if not should_ignore(root_path / d, str(root_path / d))
         ]
 
         for file in files:
@@ -82,10 +84,12 @@ def generate_report():
     files = walk()
 
     lines = []
-    lines.append(f"# Estado do Projeto\n")
-    lines.append(f"**Gerado em:** {now.strftime('%d/%m/%Y às %H:%M')} (Horário de Brasília)\n")
+    lines.append("# Estado do Projeto\n")
+    lines.append(
+        f"**Gerado em:** {now.strftime('%d/%m/%Y às %H:%M')} (Horário de Brasília)\n"
+    )
     lines.append(f"**Total de arquivos:** {len(files)}\n")
-    lines.append(f"---\n")
+    lines.append("---\n")
 
     for rel_path, content in files:
         lines.append(f'<file path="{rel_path}">')
