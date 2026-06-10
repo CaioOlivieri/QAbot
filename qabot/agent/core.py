@@ -31,7 +31,7 @@ TOOLS: dict[str, object] = {
 @dataclass(frozen=True)
 class AgentState:
     project_path: str
-    max_iterations: int = 10
+    max_iterations: int = 25
 
 
 @dataclass
@@ -113,8 +113,10 @@ def run_agent(project_path: str) -> str:
     ]
 
     final_answer: str | None = None
+    consecutive_json_failures = 0
 
     for iteration in range(state.max_iterations):
+        print(f"--- Iteration {iteration} ---")
         while True:
             try:
                 response_text = _call_llm(client, messages)
@@ -136,13 +138,20 @@ def run_agent(project_path: str) -> str:
 
         try:
             parsed = json.loads(cleaned)
+            consecutive_json_failures = 0
         except json.JSONDecodeError:
+            consecutive_json_failures += 1
+            print("Invalid JSON response. Retrying.")
+            if consecutive_json_failures >= 3:
+                final_answer = "Aborted: 3 consecutive invalid JSON responses."
+                break
             messages.append(
                 {
                     "role": "user",
                     "content": (
-                        f"Invalid JSON. Please respond with valid JSON only.\n"
-                        f"Raw response: {response_text}"
+                        "Your previous response was not valid JSON. "
+                        "Respond with a single JSON object only, "
+                        "no markdown fences, no commentary."
                     ),
                 }
             )
@@ -150,7 +159,6 @@ def run_agent(project_path: str) -> str:
 
         thought: str | None = parsed.get("thought")
         action: str | None = parsed.get("action")
-        print(f"--- Iteration {iteration} ---")
         if thought:
             print(f"Thought: {thought}")
         if action:
@@ -160,7 +168,7 @@ def run_agent(project_path: str) -> str:
             final_answer = parsed["final_answer"]
             break
 
-        action_input: str = parsed.get("action_input", "")
+        action_input: str | dict[str, object] = parsed.get("action_input", "")
 
         if action:
             result = _dispatch(action, action_input, state.project_path)
