@@ -83,8 +83,10 @@ qabot/
 │   ├── prompts.py     # QA specialist system prompt
 │   └── report.py      # markdown report generation
 └── tools/
-    ├── fs.py          # list_files, read_file, write_file
-    └── runner.py      # run_command, parse_coverage
+    ├── api.py          # API endpoint detection and testing
+    ├── analyzer.py     # static AST bug scanner
+    ├── fs.py           # list_files, read_file, write_file
+    └── runner.py       # run_command, parse_coverage, parse_pytest_failures
 ```
 
 ### How it works
