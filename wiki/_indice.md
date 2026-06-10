@@ -11,17 +11,17 @@ dev: pytest, pytest-cov, ruff. Modelo: gemini-2.5-flash-lite. API via httpx.
  
 ## Decisões
 - [[decisoes/escopo-do-agente]]            (rascunho)
-- [[decisoes/relatorio-deterministico]]    (proposta, NÃO implementada)
+- [[decisoes/relatorio-deterministico]]    (implementada)
 - [[decisoes/react-unico-vs-multiagente]]  (aberta)
  
 ## Componentes
 - [[componentes/agent-core]]      integrado
-- [[componentes/agent-prompts]]   integrado (lista só 5 tools — lacuna)
-- [[componentes/agent-report]]    orfao-total
+- [[componentes/agent-prompts]]   integrado
+- [[componentes/agent-report]]    integrado
 - [[componentes/tools-fs]]        integrado
-- [[componentes/tools-runner]]    parcial (parse_pytest_failures órfão)
-- [[componentes/tools-api]]       orfao-na-pratica
-- [[componentes/tools-analyzer]]  orfao-total
+- [[componentes/tools-runner]]    integrado
+- [[componentes/tools-api]]       integrado
+- [[componentes/tools-analyzer]]  integrado
  
 ## Padrões
 - [[padroes/convencoes-de-teste]]
@@ -31,5 +31,6 @@ dev: pytest, pytest-cov, ruff. Modelo: gemini-2.5-flash-lite. API via httpx.
 ## Projetos (roadmap)
 - [[projetos/layer-0-wiring]]
 - [[projetos/layer-1-test-agent-ci]]
+- [[projetos/layer-1-5-deteccao-semantica]]  (proposta)
 - [[projetos/layer-2-github-integration]]
 - [[projetos/layer-3-state-persistence]]

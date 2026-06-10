@@ -1,17 +1,18 @@
 # Layer 0 — Costura (wiring)
-status: aberta
-atualizado: 2026-06-02
+status: concluída
+atualizado: 2026-06-09
  
 Maior valor, menor risco: ligar o que já existe e está testado. Sem reescrever.
  
-Passos (todos verificáveis em [[_estado-de-integracao]]):
-1. Adicionar detect_api_endpoints e test_api_endpoint ao system prompt
-   ([[componentes/tools-api]]).
-2. Importar e usar analyze_project_ast e parse_pytest_failures, acumulando
-   achados estruturados durante o loop.
-3. Implementar [[decisoes/relatorio-deterministico]]: chamar generate_report
-   no fim de run_agent e ESCREVER o markdown em disco.
-4. Corrigir o drift de README e AGENT.md para refletir o real.
+Passos executados (verificados em [[raw/layer0-pytest-run.txt]] e
+[[_estado-de-integracao]]):
+1. detect_api_endpoints e test_api_endpoint adicionados ao system prompt
+   e à seção "Workflow guidance".
+2. analyze_project_ast e parse_pytest_failures importados em core.py,
+   expostos no TOOLS, _dispatch e prompt; achados acumulados em Findings.
+3. generate_report chamado deterministicamente no fim de run_agent;
+   relatório escrito em reports/qa_report.md.
+4. Drift de README.md e AGENT.md corrigido.
  
 Lembrete de disciplina: cada afirmação do relatório deve vir de execução real
 salva em raw/ (ver [[_schema]]).
