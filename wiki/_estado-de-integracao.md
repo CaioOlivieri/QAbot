@@ -1,7 +1,7 @@
 # Estado de Integração
 status: verificado
 fontes: qabot/agent/core.py, qabot/agent/prompts.py (lidos do repo, branch main)
-atualizado: 2026-06-02
+atualizado: 2026-06-09
  
 Verdade única sobre o que o agente realmente usa. README/AGENT.md divergem disto.
  
@@ -10,25 +10,21 @@ Verdade única sobre o que o agente realmente usa. README/AGENT.md divergem dist
 | Listar/ler/escrever   | list_files, read_file, write_file    | sim           | sim        | integrado         |
 | Rodar comando         | run_command                          | sim           | sim        | integrado         |
 | Parsear cobertura     | parse_coverage                       | sim           | sim        | integrado         |
-| Classificar falhas    | parse_pytest_failures                | NÃO           | não        | orfao-total       |
-| Bug estático (AST)    | analyze_file_ast/analyze_project_ast | NÃO           | não        | orfao-total       |
-| Teste de API          | detect_api_endpoints/test_api_endpoint| sim          | NÃO        | orfao-na-pratica  |
-| Relatório             | generate_report                      | NÃO           | não        | orfao-total       |
+| Classificar falhas    | parse_pytest_failures                | sim           | sim        | integrado         |
+| Bug estático (AST)    | analyze_file_ast/analyze_project_ast | sim           | sim        | integrado         |
+| Teste de API          | detect_api_endpoints/test_api_endpoint| sim           | sim        | integrado         |
+| Relatório             | generate_report                      | NÃO (não é tool)| NÃO        | integrado         |
  
-Consequência: `run_agent` devolve o `final_answer` em texto livre do LLM;
-nenhum relatório vai pro disco, nenhum bug é detectado pelos mecanismos
-construídos para isso. Costura = [[projetos/layer-0-wiring]].
+Costura completa em [[projetos/layer-0-wiring]] (2026-06-09).
+`run_agent` agora acumula achados estruturados no loop, chama
+`generate_report` no fim e escreve `reports/qa_report.md` em disco.
  
-## Drift de documentação (corrigir junto da costura)
+## Drift de documentação (corrigido na Layer 0, 2026-06-09)
 README.md:
-- "What it does" passos 8 (detecta bugs) e 9 (relatório) descritos como se
-  existissem — ambos órfãos.
-- "Design decisions" descreve "Bug detection in two layers" como ativo — não é.
-- "Architecture" omite tools/api.py e tools/analyzer.py da árvore (lista só
-  fs.py e runner.py em tools/).
+- "What it does" passos 8 (detecta bugs) e 9 (relatório) — agora verdadeiros.
+- "Design decisions" descreve "Bug detection in two layers" como ativo — agora verdadeiro.
+- "Architecture" agora inclui tools/api.py e tools/analyzer.py na árvore.
 AGENT.md:
-- "Pending" lista report.py (#1), test_tools.py (parte do #3) e api.py (#5)
-  como pendentes, mas os três já existem. Reais hoje: só test_agent.py
-  (resto do #3) e a CI (#4).
-- "Architecture" lista só api.py e analyzer.py — visão parcial e desatualizada.
-- Viola a própria regra "update this file before changing architecture".
+- "Pending" removido — GitHub Issues são a fonte única de trabalho pendente.
+- "Architecture" agora lista todos os 8 módulos com papel de uma linha cada.
+- "Knowledge base" adicionado com regras de leitura de wiki antes de mudanças.
