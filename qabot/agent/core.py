@@ -1,16 +1,19 @@
+import ast
 import json
 import os
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
 from qabot.agent.prompts import SYSTEM_PROMPT
+from qabot.agent.report import generate_report
+from qabot.tools.analyzer import analyze_project_ast
 from qabot.tools.api import detect_api_endpoints, test_api_endpoint
 from qabot.tools.fs import list_files, read_file, write_file
-from qabot.tools.runner import parse_coverage, run_command
+from qabot.tools.runner import parse_coverage, parse_pytest_failures, run_command
 
 TOOLS: dict[str, object] = {
     "list_files": list_files,
@@ -20,6 +23,8 @@ TOOLS: dict[str, object] = {
     "parse_coverage": parse_coverage,
     "detect_api_endpoints": detect_api_endpoints,
     "test_api_endpoint": test_api_endpoint,
+    "parse_pytest_failures": parse_pytest_failures,
+    "analyze_project_ast": analyze_project_ast,
 }
 
 
@@ -27,6 +32,15 @@ TOOLS: dict[str, object] = {
 class AgentState:
     project_path: str
     max_iterations: int = 10
+
+
+@dataclass
+class Findings:
+    coverage_before: dict[str, float] = field(default_factory=dict)
+    coverage_after: dict[str, float] = field(default_factory=dict)
+    ast_bugs: list[dict[str, object]] = field(default_factory=list)
+    dynamic_bugs: list[dict[str, object]] = field(default_factory=list)
+    api_results: list[dict[str, object]] = field(default_factory=list)
 
 
 def _call_llm(client: genai.Client, messages: list[dict[str, str]]) -> str:
@@ -78,6 +92,13 @@ def _dispatch(
             expected_status=params.get("expected_status", 200),
         )
         return str(result)
+    if action == "parse_pytest_failures":
+        result = parse_pytest_failures(str(action_input))
+        return str(result)
+    if action == "analyze_project_ast":
+        inp = str(action_input) if action_input else project_path
+        result = analyze_project_ast(inp)
+        return str(result)
     return f"Unknown tool: {action}"
 
 
@@ -86,9 +107,12 @@ def run_agent(project_path: str) -> str:
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
     state = AgentState(project_path=project_path)
+    findings = Findings()
     messages: list[dict[str, str]] = [
         {"role": "user", "content": f"Analyze the project at {project_path}"}
     ]
+
+    final_answer: str | None = None
 
     for iteration in range(state.max_iterations):
         while True:
@@ -133,7 +157,8 @@ def run_agent(project_path: str) -> str:
             print(f"Action: {action}")
 
         if "final_answer" in parsed:
-            return parsed["final_answer"]
+            final_answer = parsed["final_answer"]
+            break
 
         action_input: str = parsed.get("action_input", "")
 
@@ -145,6 +170,26 @@ def run_agent(project_path: str) -> str:
                     "content": f"Tool result for {action}: {result}",
                 }
             )
+
+            if action == "parse_coverage":
+                data = ast.literal_eval(result)
+                if isinstance(data, dict):
+                    if not findings.coverage_before:
+                        findings.coverage_before = data
+                    else:
+                        findings.coverage_after = data
+            elif action == "analyze_project_ast":
+                data = ast.literal_eval(result)
+                if isinstance(data, list):
+                    findings.ast_bugs.extend(data)
+            elif action == "parse_pytest_failures":
+                data = ast.literal_eval(result)
+                if isinstance(data, list):
+                    findings.dynamic_bugs.extend(data)
+            elif action == "test_api_endpoint":
+                data = ast.literal_eval(result)
+                if isinstance(data, dict):
+                    findings.api_results.append(data)
         else:
             messages.append(
                 {
@@ -153,4 +198,20 @@ def run_agent(project_path: str) -> str:
                 }
             )
 
-    return "Max iterations reached without a final answer."
+    if final_answer is None:
+        final_answer = "Max iterations reached without a final answer."
+
+    report_md = generate_report(
+        project_path,
+        findings.coverage_before,
+        findings.coverage_after,
+        findings.ast_bugs,
+        findings.dynamic_bugs,
+        findings.api_results,
+    )
+    os.makedirs("reports", exist_ok=True)
+    with open("reports/qa_report.md", "w") as f:
+        f.write(report_md)
+    print("Report saved to reports/qa_report.md")
+
+    return final_answer

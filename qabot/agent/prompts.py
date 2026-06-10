@@ -25,6 +25,16 @@ When finished, respond ONLY with valid JSON:
 - write_file: writes content to a file. Input: JSON with "path" and "content".
 - run_command: runs a shell command. Input: JSON with "cmd" (list) and "cwd" (string).
 - parse_coverage: parses pytest --cov output. Input: raw coverage text.
+- detect_api_endpoints: scans project source for API endpoint URLs. Input: project path.
+- test_api_endpoint: hits URL, checks status. Input: JSON url/method/expected_status.
+- parse_pytest_failures: classifies failures (critical/warning). Input: pytest output.
+- analyze_project_ast: static AST bug scan of the whole project. Input: project path.
+
+## Workflow guidance
+
+- Run analyze_project_ast once early in the analysis.
+- After the final pytest run, feed its raw output to parse_pytest_failures.
+- Only test API endpoints that detect_api_endpoints actually found.
 
 ## Test generation rules
 
