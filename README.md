@@ -15,7 +15,7 @@ Given a local repository, qabot analyzes test coverage, generates missing tests,
 5. Generates pytest unit tests for the gaps
 6. Writes test files to disk
 7. Runs `pytest --cov` again to validate coverage
-8. Detects critical bugs — static analysis via LLM + dynamic via pytest failures
+8. Detects critical bugs — static analysis via AST + dynamic via pytest failures
 9. Produces a markdown report with before/after coverage, bugs found, and suggestions
 
 ---
