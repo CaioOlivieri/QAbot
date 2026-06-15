@@ -30,7 +30,7 @@ def _fmt_delta(delta: float) -> str:
     return f"{sign}{delta:.1f}%"
 
 
-def _section_ast_bugs(bugs: list[dict]) -> str:
+def _section_ast_bugs(bugs: list[dict[str, object]]) -> str:
     lines: list[str] = [
         "## Static Bugs (AST)",
         "",
@@ -52,7 +52,7 @@ def _section_ast_bugs(bugs: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def _section_dynamic_bugs(bugs: list[dict[str, str | int]]) -> str:
+def _section_dynamic_bugs(bugs: list[dict[str, object]]) -> str:
     lines: list[str] = [
         "## Dynamic Bugs (pytest)",
         "",
@@ -74,7 +74,7 @@ def _section_dynamic_bugs(bugs: list[dict[str, str | int]]) -> str:
     return "\n".join(lines)
 
 
-def _section_api(results: list[dict]) -> str:
+def _section_api(results: list[dict[str, object]]) -> str:
     lines: list[str] = [
         "## API Testing",
         "",
@@ -101,12 +101,12 @@ def _section_api(results: list[dict]) -> str:
 
 def _compute_score(
     after: dict[str, float],
-    ast_bugs: list[dict],
-    dynamic_bugs: list[dict[str, str | int]],
-    api_results: list[dict],
+    ast_bugs: list[dict[str, object]],
+    dynamic_bugs: list[dict[str, object]],
+    api_results: list[dict[str, object]],
 ) -> tuple[float, float, float, float]:
     coverage_score: float = statistics.mean(after.values()) if after else 0.0
-    all_bugs: list[dict] = ast_bugs + dynamic_bugs
+    all_bugs: list[dict[str, object]] = ast_bugs + dynamic_bugs
     criticals: int = sum(1 for b in all_bugs if b["severity"] == "critical")
     warnings: int = sum(1 for b in all_bugs if b["severity"] == "warning")
     bug_score: float = max(0.0, 100.0 - criticals * 10.0 - warnings * 3.0)
@@ -121,9 +121,9 @@ def generate_report(
     project_path: str,
     coverage_before: dict[str, float],
     coverage_after: dict[str, float],
-    ast_bugs: list[dict],
-    dynamic_bugs: list[dict[str, str | int]],
-    api_results: list[dict],
+    ast_bugs: list[dict[str, object]],
+    dynamic_bugs: list[dict[str, object]],
+    api_results: list[dict[str, object]],
 ) -> str:
     quality_score, coverage_score, bug_score, api_score = _compute_score(
         coverage_after,
