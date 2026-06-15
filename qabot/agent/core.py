@@ -1,7 +1,9 @@
 import ast
 import json
 import os
+import re
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
@@ -53,9 +55,79 @@ def _call_llm(client: genai.Client, messages: list[dict[str, str]]) -> str:
         contents=contents,
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT,
+            response_mime_type="application/json",
         ),
     )
     return response.text
+
+
+_FENCE = re.compile(r"^```[a-zA-Z0-9]*\s*\n?(.*?)\n?```$", re.DOTALL)
+_TRAILING_COMMA = re.compile(r",(\s*[}\]])")
+
+
+def _strip_code_fence(text: str) -> str:
+    match = _FENCE.match(text)
+    return match.group(1).strip() if match else text
+
+
+def _remove_trailing_commas(text: str) -> str:
+    return _TRAILING_COMMA.sub(r"\1", text)
+
+
+def _balanced_object(text: str, start: int) -> str | None:
+    depth = 0
+    in_string = False
+    escaped = False
+    for i in range(start, len(text)):
+        char = text[i]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : i + 1]
+    return None
+
+
+def _json_object_candidates(text: str) -> Iterator[str]:
+    for start, char in enumerate(text):
+        if char == "{":
+            block = _balanced_object(text, start)
+            if block is not None:
+                yield block
+
+
+def _try_loads(text: str) -> dict[str, object] | None:
+    for strict in (True, False):
+        try:
+            parsed = json.loads(text, strict=strict)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+    return None
+
+
+def _parse_agent_json(text: str) -> dict[str, object]:
+    stripped = text.strip()
+    candidates = [stripped, _strip_code_fence(stripped)]
+    candidates.extend(_json_object_candidates(stripped))
+    for candidate in candidates:
+        for variant in (candidate, _remove_trailing_commas(candidate)):
+            parsed = _try_loads(variant)
+            if parsed is not None:
+                return parsed
+    raise ValueError("no valid JSON object found in response")
 
 
 def _ensure_dict(data: str | dict[str, object]) -> dict[str, object]:
@@ -130,16 +202,10 @@ def run_agent(project_path: str) -> str:
                     raise
         messages.append({"role": "model", "content": response_text})
 
-        cleaned = response_text.strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned.removeprefix("```json").removeprefix("```")
-            cleaned = cleaned.removesuffix("```")
-            cleaned = cleaned.strip()
-
         try:
-            parsed = json.loads(cleaned)
+            parsed = _parse_agent_json(response_text)
             consecutive_json_failures = 0
-        except json.JSONDecodeError:
+        except ValueError:
             consecutive_json_failures += 1
             print("Invalid JSON response. Retrying.")
             if consecutive_json_failures >= 3:
@@ -150,8 +216,9 @@ def run_agent(project_path: str) -> str:
                     "role": "user",
                     "content": (
                         "Your previous response was not valid JSON. "
-                        "Respond with a single JSON object only, "
-                        "no markdown fences, no commentary."
+                        "Respond with a single JSON object only, no markdown "
+                        "fences, no commentary. Escape newlines inside string "
+                        "values as \\n."
                     ),
                 }
             )
