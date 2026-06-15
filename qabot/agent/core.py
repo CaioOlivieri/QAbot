@@ -17,18 +17,6 @@ from qabot.tools.api import detect_api_endpoints, test_api_endpoint
 from qabot.tools.fs import list_files, read_file, write_file
 from qabot.tools.runner import parse_coverage, parse_pytest_failures, run_command
 
-TOOLS: dict[str, object] = {
-    "list_files": list_files,
-    "read_file": read_file,
-    "write_file": write_file,
-    "run_command": run_command,
-    "parse_coverage": parse_coverage,
-    "detect_api_endpoints": detect_api_endpoints,
-    "test_api_endpoint": test_api_endpoint,
-    "parse_pytest_failures": parse_pytest_failures,
-    "analyze_project_ast": analyze_project_ast,
-}
-
 
 @dataclass(frozen=True)
 class AgentState:
