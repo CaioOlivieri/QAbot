@@ -13,6 +13,7 @@ dev: pytest, pytest-cov, ruff. Modelo: gemini-2.5-flash-lite. API via httpx.
 - [[decisoes/escopo-do-agente]]            (rascunho)
 - [[decisoes/relatorio-deterministico]]    (implementada)
 - [[decisoes/react-unico-vs-multiagente]]  (aberta)
+- [[decisoes/json-mode-e-parser-robusto]]  (verificado)
  
 ## Componentes
 - [[componentes/agent-core]]      integrado

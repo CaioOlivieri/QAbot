@@ -1,7 +1,7 @@
 # Estado de Integração
 status: verificado
 fontes: qabot/agent/core.py, qabot/agent/prompts.py (lidos do repo, branch main)
-atualizado: 2026-06-09
+atualizado: 2026-06-15
  
 Verdade única sobre o que o agente realmente usa. README/AGENT.md divergem disto.
  
@@ -28,3 +28,9 @@ AGENT.md:
 - "Pending" removido — GitHub Issues são a fonte única de trabalho pendente.
 - "Architecture" agora lista todos os 8 módulos com papel de uma linha cada.
 - "Knowledge base" adicionado com regras de leitura de wiki antes de mudanças.
+
+## Robustez de JSON (2026-06-15)
+`_call_llm` usa `response_mime_type="application/json"` e o parsing inline foi
+trocado por `_parse_agent_json` (puro, tolerante a cercas/prosa/vírgula final/
+newline literal). Causa raiz dos aborts de JSON resolvida; verificado por
+execução real. Detalhe em [[decisoes/json-mode-e-parser-robusto]].
