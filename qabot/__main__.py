@@ -5,7 +5,7 @@ from qabot.agent.core import run_agent
 
 def main() -> int:
     if len(sys.argv) < 2:
-        print("Usage: qabot analyze <project_path>")
+        print("Usage: python -m qabot <project_path>")
         return 1
 
     project_path: str = sys.argv[1]
