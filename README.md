@@ -1,5 +1,7 @@
 # QAbot
 
+[![CI](https://github.com/CaioOlivieri/QAbot/actions/workflows/ci.yml/badge.svg)](https://github.com/CaioOlivieri/QAbot/actions/workflows/ci.yml)
+
 AI agent for automated QA on Python projects.
 
 Given a local repository, qabot analyzes test coverage, generates missing tests, detects critical bugs, and produces a quality report — all autonomously.
