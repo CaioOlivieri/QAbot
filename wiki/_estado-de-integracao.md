@@ -17,7 +17,8 @@ Verdade única sobre o que o agente realmente usa. README/AGENT.md divergem dist
  
 Costura completa em [[projetos/layer-0-wiring]] (2026-06-09).
 `run_agent` agora acumula achados estruturados no loop, chama
-`generate_report` no fim e escreve `reports/qa_report.md` em disco.
+`generate_report` no fim e escreve o relatório em
+`<project_path>/reports/qa_report.md` (via `_write_report`).
  
 ## Drift de documentação (corrigido na Layer 0, 2026-06-09)
 README.md:
