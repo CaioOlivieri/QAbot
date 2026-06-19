@@ -1,7 +1,9 @@
+from contextlib import contextmanager
 from unittest.mock import mock_open, patch
 
 import pytest
 
+import qabot.agent.core as core
 from qabot.agent.core import _parse_agent_json, _write_report
 
 
@@ -74,3 +76,94 @@ def test_write_report_writes_under_project_path() -> None:
     mock_dirs.assert_called_once_with("/proj/reports", exist_ok=True)
     m.assert_called_once_with("/proj/reports/qa_report.md", "w")
     m.return_value.write.assert_called_once_with("# report")
+
+
+_ACTION = '{"thought": "look around", "action": "list_files", "action_input": "."}'
+_FINAL = '{"thought": "done", "final_answer": "analysis complete"}'
+_INVALID = "this is not json"
+_PARSE_COVERAGE = (
+    '{"thought": "coverage", "action": "parse_coverage", "action_input": "raw"}'
+)
+
+
+@contextmanager
+def _patched_agent(monkeypatch, responses, dispatch_result="tool output"):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    with (
+        patch.object(core, "load_dotenv"),
+        patch.object(core, "genai"),
+        patch.object(core, "_call_llm", side_effect=responses) as call_llm,
+        patch.object(core, "_dispatch", return_value=dispatch_result) as dispatch,
+        patch.object(core, "generate_report", return_value="# report") as generate,
+        patch.object(core, "_write_report", return_value="report.md") as write,
+    ):
+        yield call_llm, dispatch, generate, write
+
+
+def test_dispatch_routes_string_input_to_list_files() -> None:
+    with patch.object(core, "list_files", return_value=["a.py"]) as list_files:
+        result = core._dispatch("list_files", "/proj", "/proj")
+    list_files.assert_called_once_with("/proj")
+    assert "a.py" in result
+
+
+def test_dispatch_parses_dict_input_for_write_file() -> None:
+    with patch.object(core, "write_file") as write_file:
+        result = core._dispatch(
+            "write_file", {"path": "a.py", "content": "x = 1"}, "/proj"
+        )
+    write_file.assert_called_once_with("a.py", "x = 1")
+    assert result == "File written successfully."
+
+
+def test_dispatch_unknown_tool_returns_message() -> None:
+    assert core._dispatch("mystery", "", "/proj") == "Unknown tool: mystery"
+
+
+def test_final_answer_terminates_loop(monkeypatch) -> None:
+    with _patched_agent(monkeypatch, [_FINAL]) as (call_llm, _disp, generate, _write):
+        result = core.run_agent("/proj")
+    assert result == "analysis complete"
+    assert call_llm.call_count == 1
+    generate.assert_called_once()
+
+
+def test_invalid_json_retries_then_continues(monkeypatch) -> None:
+    with _patched_agent(monkeypatch, [_INVALID, _FINAL]) as (call_llm, *_):
+        result = core.run_agent("/proj")
+    assert result == "analysis complete"
+    assert call_llm.call_count == 2
+
+
+def test_three_invalid_json_responses_abort(monkeypatch) -> None:
+    responses = [_INVALID, _INVALID, _INVALID]
+    with _patched_agent(monkeypatch, responses) as (call_llm, *_):
+        result = core.run_agent("/proj")
+    assert result == "Aborted: 3 consecutive invalid JSON responses."
+    assert call_llm.call_count == 3
+
+
+def test_findings_accumulate_across_iterations(monkeypatch) -> None:
+    coverage = "{'qabot/core.py': 50.0}"
+    responses = [_PARSE_COVERAGE, _FINAL]
+    with _patched_agent(monkeypatch, responses, dispatch_result=coverage) as (
+        _call_llm,
+        _disp,
+        generate,
+        _write,
+    ):
+        core.run_agent("/proj")
+    coverage_before = generate.call_args.args[1]
+    assert coverage_before == {"qabot/core.py": 50.0}
+
+
+def test_max_iterations_reached_still_writes_report(monkeypatch) -> None:
+    def always_act(client, messages):
+        return _ACTION
+
+    with _patched_agent(monkeypatch, always_act) as (call_llm, _disp, generate, write):
+        result = core.run_agent("/proj")
+    assert result == "Max iterations reached without a final answer."
+    assert call_llm.call_count == 25
+    generate.assert_called_once()
+    write.assert_called_once_with("/proj", "# report")
