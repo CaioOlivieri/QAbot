@@ -1,6 +1,8 @@
+from unittest.mock import mock_open, patch
+
 import pytest
 
-from qabot.agent.core import _parse_agent_json
+from qabot.agent.core import _parse_agent_json, _write_report
 
 
 def test_parses_plain_json() -> None:
@@ -61,3 +63,14 @@ def test_raises_on_no_json_object() -> None:
 def test_raises_on_json_array() -> None:
     with pytest.raises(ValueError):
         _parse_agent_json('["not", "an", "object"]')
+
+
+def test_write_report_writes_under_project_path() -> None:
+    m = mock_open()
+    with patch("qabot.agent.core.os.makedirs") as mock_dirs:
+        with patch("builtins.open", m):
+            path = _write_report("/proj", "# report")
+    assert path == "/proj/reports/qa_report.md"
+    mock_dirs.assert_called_once_with("/proj/reports", exist_ok=True)
+    m.assert_called_once_with("/proj/reports/qa_report.md", "w")
+    m.return_value.write.assert_called_once_with("# report")
