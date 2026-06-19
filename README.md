@@ -63,6 +63,14 @@ cp .env.example .env.keys
 # get your key at: https://aistudio.google.com/apikey
 ```
 
+Or, with [uv](https://github.com/astral-sh/uv) — uses the committed `uv.lock`
+for a reproducible install:
+
+```bash
+uv sync
+cp .env.example .env.keys  # then add your GEMINI_API_KEY
+```
+
 ---
 
 ## Usage
