@@ -162,6 +162,15 @@ def _dispatch(
     return f"Unknown tool: {action}"
 
 
+def _write_report(project_path: str, report_md: str) -> str:
+    reports_dir = os.path.join(project_path, "reports")
+    os.makedirs(reports_dir, exist_ok=True)
+    report_path = os.path.join(reports_dir, "qa_report.md")
+    with open(report_path, "w") as f:
+        f.write(report_md)
+    return report_path
+
+
 def run_agent(project_path: str) -> str:
     load_dotenv(".env.keys")
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
@@ -272,9 +281,7 @@ def run_agent(project_path: str) -> str:
         findings.dynamic_bugs,
         findings.api_results,
     )
-    os.makedirs("reports", exist_ok=True)
-    with open("reports/qa_report.md", "w") as f:
-        f.write(report_md)
-    print("Report saved to reports/qa_report.md")
+    report_path = _write_report(project_path, report_md)
+    print(f"Report saved to {report_path}")
 
     return final_answer
