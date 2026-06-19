@@ -1,7 +1,7 @@
 # agent/core.py
 status: integrado
 fontes: qabot/agent/core.py
-atualizado: 2026-06-09
+atualizado: 2026-06-19
  
 Loop ReAct. `run_agent(project_path)` chama o LLM (gemini-2.5-flash-lite),
 parseia JSON {thought, action, action_input} ou {thought, final_answer},
@@ -12,4 +12,5 @@ parse_coverage, detect_api_endpoints, test_api_endpoint, parse_pytest_failures,
 analyze_project_ast.
  
 Acumula achados estruturados (Findings) durante o loop e chama
-generate_report no fim, escrevendo reports/qa_report.md em disco.
+generate_report no fim, escrevendo o relatório em
+<project_path>/reports/qa_report.md (via _write_report).
