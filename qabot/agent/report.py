@@ -99,14 +99,54 @@ def _section_api(results: list[dict[str, object]]) -> str:
     return "\n".join(lines)
 
 
+def _section_semantic_bugs(suspected_bugs: list[dict[str, object]]) -> str:
+    confirmed = [b for b in suspected_bugs if b.get("status") == "confirmed"]
+    lines: list[str] = [
+        "## Semantic Bugs (LLM, confirmed by execution)",
+        "",
+        "| File | Line | Severity | Description |",
+        "| --- | --- | --- | --- |",
+    ]
+    if not confirmed:
+        lines.append("No confirmed semantic bugs.")
+        return "\n".join(lines)
+    for b in sorted(confirmed, key=lambda b: (b["file"], b["line"])):
+        lines.append(
+            f"| {b['file']} | {b['line']} | {b['severity']} | {b['description']} |"
+        )
+    return "\n".join(lines)
+
+
+def _section_suspected(suspected_bugs: list[dict[str, object]]) -> str:
+    suspected = [b for b in suspected_bugs if b.get("status") == "suspected"]
+    lines: list[str] = [
+        "## For Review (unverified suspicions — not scored)",
+        "",
+        "| File | Line | Severity | Description |",
+        "| --- | --- | --- | --- |",
+    ]
+    if not suspected:
+        lines.append("No unverified suspicions.")
+        return "\n".join(lines)
+    for b in sorted(suspected, key=lambda b: (b["file"], b["line"])):
+        lines.append(
+            f"| {b['file']} | {b['line']} | {b['severity']} | {b['description']} |"
+        )
+    return "\n".join(lines)
+
+
 def _compute_score(
     after: dict[str, float],
     ast_bugs: list[dict[str, object]],
     dynamic_bugs: list[dict[str, object]],
     api_results: list[dict[str, object]],
+    suspected_bugs: list[dict[str, object]],
 ) -> tuple[float, float, float, float]:
     coverage_score: float = statistics.mean(after.values()) if after else 0.0
-    all_bugs: list[dict[str, object]] = ast_bugs + dynamic_bugs
+    confirmed: list[dict[str, object]] = [
+        b for b in suspected_bugs if b.get("status") == "confirmed"
+    ]
+    all_bugs: list[dict[str, object]] = ast_bugs + dynamic_bugs + confirmed
     criticals: int = sum(1 for b in all_bugs if b["severity"] == "critical")
     warnings: int = sum(1 for b in all_bugs if b["severity"] == "warning")
     bug_score: float = max(0.0, 100.0 - criticals * 10.0 - warnings * 3.0)
@@ -124,12 +164,14 @@ def generate_report(
     ast_bugs: list[dict[str, object]],
     dynamic_bugs: list[dict[str, object]],
     api_results: list[dict[str, object]],
+    suspected_bugs: list[dict[str, object]],
 ) -> str:
     quality_score, coverage_score, bug_score, api_score = _compute_score(
         coverage_after,
         ast_bugs,
         dynamic_bugs,
         api_results,
+        suspected_bugs,
     )
     parts: list[str] = [
         f"# QAbot Report — {project_path}",
@@ -144,6 +186,10 @@ def generate_report(
         "",
         _section_dynamic_bugs(dynamic_bugs),
         "",
+        _section_semantic_bugs(suspected_bugs),
+        "",
         _section_api(api_results),
+        "",
+        _section_suspected(suspected_bugs),
     ]
     return "\n".join(parts)
