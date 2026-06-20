@@ -12,6 +12,7 @@ Verdade única sobre o que o agente realmente usa. README/AGENT.md divergem dist
 | Parsear cobertura     | parse_coverage                       | sim           | sim        | integrado         |
 | Classificar falhas    | parse_pytest_failures                | sim           | sim        | integrado         |
 | Bug estático (AST)    | analyze_file_ast/analyze_project_ast | sim           | sim        | integrado         |
+| Bug semântico (LLM)   | report_suspected_bug/resolve_suspected_bug | sim     | sim        | implementado      |
 | Teste de API          | detect_api_endpoints/test_api_endpoint| sim           | sim        | integrado         |
 | Relatório             | generate_report                      | NÃO (não é tool)| NÃO        | integrado         |
  
@@ -35,3 +36,11 @@ AGENT.md:
 trocado por `_parse_agent_json` (puro, tolerante a cercas/prosa/vírgula final/
 newline literal). Causa raiz dos aborts de JSON resolvida; verificado por
 execução real. Detalhe em [[decisoes/json-mode-e-parser-robusto]].
+
+## Detecção semântica — Layer 1.5 (2026-06-19)
+report_suspected_bug + resolve_suspected_bug no _dispatch e no prompt;
+Findings.suspected_bugs; confirmação por execução (_resolve_suspicion só confirma
+se o último run de teste falhou). Confirmados contam no score; suspeitos vão para
+"For Review" (fora do score). E2e ao vivo PENDENTE (quota Gemini) — por isso
+"implementado", não "verificado". Detalhe em
+[[projetos/layer-1-5-deteccao-semantica]].

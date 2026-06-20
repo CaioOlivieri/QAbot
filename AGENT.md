@@ -6,7 +6,7 @@ Instructions for AI agents working on this codebase.
 
 ## What this project does
 
-qabot is a CLI agent that analyzes Python projects, generates missing tests, detects bugs, and produces a quality report.
+qabot is a CLI agent that analyzes Python projects, generates missing tests, detects bugs (static, dynamic, and execution-verified semantic), and produces a quality report. It reports bugs but never modifies the analyzed source.
 
 ```bash
 python -m qabot <project_path>
@@ -34,9 +34,9 @@ ruff check .
 ## Architecture
 
 - `qabot/__main__.py` — CLI entrypoint
-- `qabot/agent/core.py` — ReAct loop, tool dispatch, findings accumulation
+- `qabot/agent/core.py` — ReAct loop, tool dispatch, findings accumulation, semantic-suspicion gating
 - `qabot/agent/prompts.py` — LLM system prompt with tool descriptions
-- `qabot/agent/report.py` — deterministic markdown report generation
+- `qabot/agent/report.py` — deterministic markdown report (incl. semantic & for-review sections)
 - `qabot/tools/api.py` — API endpoint detection and testing
 - `qabot/tools/analyzer.py` — static AST bug scan
 - `qabot/tools/fs.py` — file system operations (list, read, write)
