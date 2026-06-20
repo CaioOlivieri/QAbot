@@ -1,6 +1,6 @@
 # QAbot
 
-[![CI](https://github.com/CaioOlivieri/QAbot/actions/workflows/ci.yml/badge.svg)](https://github.com/CaioOlivieri/QAbot/actions/workflows/ci.yml)
+[![CI](https://github.com/CaioOlivieri/QAbot/actions/workflows/ci.yml/badge.svg)](https://github.com/CaioOlivieri/QAbot/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/CaioOlivieri/QAbot/graph/badge.svg)](https://codecov.io/gh/CaioOlivieri/QAbot)
 
 AI agent for automated QA on Python projects.
 
