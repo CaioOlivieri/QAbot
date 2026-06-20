@@ -167,3 +167,59 @@ def test_max_iterations_reached_still_writes_report(monkeypatch) -> None:
     assert call_llm.call_count == 25
     generate.assert_called_once()
     write.assert_called_once_with("/proj", "# report")
+
+
+_SUSPECT = (
+    '{"thought": "off", "action": "report_suspected_bug", '
+    '"action_input": {"file": "m.py", "line": 7, '
+    '"description": "off-by-one", "severity": "critical"}}'
+)
+_RUN_COMMAND = (
+    '{"thought": "run", "action": "run_command", '
+    '"action_input": {"cmd": ["pytest"], "cwd": "."}}'
+)
+_RESOLVE = (
+    '{"thought": "resolve", "action": "resolve_suspected_bug", '
+    '"action_input": {"file": "m.py", "line": 7}}'
+)
+_FAILING_PYTEST = (
+    "============================== FAILURES ==============================\n"
+    "______________________ test_bug ______________________\n"
+    "E   AssertionError: assert 1 == 2\n"
+    "m.py:7: AssertionError\n"
+    "========================= short test summary info ===\n"
+)
+_PASSING_PYTEST = "Return code: 0\nStdout:\n2 passed\nStderr:\n"
+
+
+def test_report_suspected_bug_records_suspicion(monkeypatch) -> None:
+    with _patched_agent(monkeypatch, [_SUSPECT, _FINAL]) as (_c, _d, generate, _w):
+        core.run_agent("/proj")
+    suspected = generate.call_args.args[6]
+    assert len(suspected) == 1
+    assert suspected[0]["status"] == "suspected"
+    assert suspected[0]["file"] == "m.py"
+
+
+def test_suspicion_confirmed_when_test_run_failed(monkeypatch) -> None:
+    responses = [_SUSPECT, _RUN_COMMAND, _RESOLVE, _FINAL]
+    with _patched_agent(monkeypatch, responses, dispatch_result=_FAILING_PYTEST) as (
+        _c,
+        _d,
+        generate,
+        _w,
+    ):
+        core.run_agent("/proj")
+    assert generate.call_args.args[6][0]["status"] == "confirmed"
+
+
+def test_suspicion_discarded_when_test_run_passed(monkeypatch) -> None:
+    responses = [_SUSPECT, _RUN_COMMAND, _RESOLVE, _FINAL]
+    with _patched_agent(monkeypatch, responses, dispatch_result=_PASSING_PYTEST) as (
+        _c,
+        _d,
+        generate,
+        _w,
+    ):
+        core.run_agent("/proj")
+    assert generate.call_args.args[6][0]["status"] == "discarded"

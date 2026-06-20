@@ -31,6 +31,7 @@ class Findings:
     ast_bugs: list[dict[str, object]] = field(default_factory=list)
     dynamic_bugs: list[dict[str, object]] = field(default_factory=list)
     api_results: list[dict[str, object]] = field(default_factory=list)
+    suspected_bugs: list[dict[str, object]] = field(default_factory=list)
 
 
 def _call_llm(client: genai.Client, messages: list[dict[str, str]]) -> str:
@@ -159,6 +160,10 @@ def _dispatch(
         inp = str(action_input) if action_input else project_path
         result = analyze_project_ast(inp)
         return str(result)
+    if action == "report_suspected_bug":
+        return "Suspected bug recorded."
+    if action == "resolve_suspected_bug":
+        return "Resolution recorded; outcome decided by the latest test run."
     return f"Unknown tool: {action}"
 
 
@@ -169,6 +174,22 @@ def _write_report(project_path: str, report_md: str) -> str:
     with open(report_path, "w") as f:
         f.write(report_md)
     return report_path
+
+
+def _resolve_suspicion(
+    findings: Findings, params: dict[str, object], run_output: str
+) -> str:
+    status = "confirmed" if parse_pytest_failures(run_output) else "discarded"
+    target_file = str(params.get("file", ""))
+    target_line = int(params.get("line") or 0)
+    for bug in findings.suspected_bugs:
+        if bug["status"] != "suspected":
+            continue
+        if bug["file"] == target_file and bug["line"] == target_line:
+            bug["status"] = status
+            bug["evidence"] = run_output[:500] if status == "confirmed" else ""
+            return status
+    return "no matching suspicion"
 
 
 def run_agent(project_path: str) -> str:
@@ -183,6 +204,7 @@ def run_agent(project_path: str) -> str:
 
     final_answer: str | None = None
     consecutive_json_failures = 0
+    last_run_output = ""
 
     for iteration in range(state.max_iterations):
         print(f"--- Iteration {iteration} ---")
@@ -262,6 +284,23 @@ def run_agent(project_path: str) -> str:
                 data = ast.literal_eval(result)
                 if isinstance(data, dict):
                     findings.api_results.append(data)
+            elif action == "run_command":
+                last_run_output = result
+            elif action == "report_suspected_bug":
+                params = _ensure_dict(action_input)
+                findings.suspected_bugs.append(
+                    {
+                        "file": str(params.get("file", "")),
+                        "line": int(params.get("line") or 0),
+                        "description": str(params.get("description", "")),
+                        "severity": str(params.get("severity", "warning")),
+                        "status": "suspected",
+                        "evidence": "",
+                    }
+                )
+            elif action == "resolve_suspected_bug":
+                params = _ensure_dict(action_input)
+                _resolve_suspicion(findings, params, last_run_output)
         else:
             messages.append(
                 {
@@ -280,6 +319,7 @@ def run_agent(project_path: str) -> str:
         findings.ast_bugs,
         findings.dynamic_bugs,
         findings.api_results,
+        findings.suspected_bugs,
     )
     report_path = _write_report(project_path, report_md)
     print(f"Report saved to {report_path}")
