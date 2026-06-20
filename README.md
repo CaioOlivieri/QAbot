@@ -17,7 +17,7 @@ Given a local repository, qabot analyzes test coverage, generates missing tests,
 5. Generates pytest unit tests for the gaps
 6. Writes test files to disk
 7. Runs `pytest --cov` again to validate coverage
-8. Detects critical bugs — static analysis via AST + dynamic via pytest failures
+8. Detects critical bugs — static (AST) + dynamic (pytest failures) + semantic (LLM hypotheses confirmed by execution)
 9. Produces a markdown report with before/after coverage, bugs found, and suggestions
 
 ---
@@ -111,7 +111,7 @@ The agent runs a **ReAct loop** (Reason + Act): at each iteration it reasons abo
 
 **CLI first.** No UI. Designed for CI/CD integration — pipe it, script it, automate it.
 
-**Bug detection in two layers.** Static analysis catches silent exceptions and unhandled edge cases before tests run. Dynamic analysis classifies pytest failures by severity.
+**Bug detection in three layers.** Static analysis (AST) catches silent exceptions and unhandled edge cases before tests run. Dynamic analysis classifies pytest failures by severity. Semantic analysis lets the LLM raise a bug *hypothesis* (off-by-one, inverted condition, code that contradicts its docstring) — reported as confirmed only when a generated test actually fails for it; unverified suspicions are listed separately and never affect the score. The agent reports bugs but never modifies the analyzed source.
 
 ---
 

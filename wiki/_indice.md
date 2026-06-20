@@ -32,6 +32,6 @@ dev: pytest, pytest-cov, ruff. Modelo: gemini-2.5-flash-lite. API via httpx.
 ## Projetos (roadmap)
 - [[projetos/layer-0-wiring]]
 - [[projetos/layer-1-test-agent-ci]]
-- [[projetos/layer-1-5-deteccao-semantica]]  (proposta)
+- [[projetos/layer-1-5-deteccao-semantica]]  (implementada)
 - [[projetos/layer-2-github-integration]]
 - [[projetos/layer-3-state-persistence]]

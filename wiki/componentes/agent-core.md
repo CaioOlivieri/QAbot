@@ -14,3 +14,7 @@ analyze_project_ast.
 Acumula achados estruturados (Findings) durante o loop e chama
 generate_report no fim, escrevendo o relatório em
 <project_path>/reports/qa_report.md (via _write_report).
+
+Layer 1.5: as actions report_suspected_bug/resolve_suspected_bug alimentam
+Findings.suspected_bugs; _resolve_suspicion confirma só se o último run de teste
+capturado falhou (parse_pytest_failures), senão descarta.
