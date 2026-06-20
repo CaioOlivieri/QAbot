@@ -1,6 +1,25 @@
 # Layer 1.5 — Detecção semântica (hipótese verificável)
-status: proposta
-atualizado: 2026-06-09
+status: implementada
+atualizado: 2026-06-19
+
+## Implementação (2026-06-19, PR #21)
+Entregue em core.py / report.py / prompts.py:
+- `Findings.suspected_bugs`; actions `report_suspected_bug` e
+  `resolve_suspected_bug` no `_dispatch` e no prompt.
+- Portão D3 (`_resolve_suspicion`): confirma só quando o último run de teste
+  capturado falhou de verdade (`parse_pytest_failures`); senão descarta.
+  Suspeita sem execução fica "suspected".
+- report.py: seção "Semantic Bugs (confirmed)" entra no score; "For Review"
+  (suspected) fica FORA do score; discarded não aparece.
+- Prompt: o agente detecta e reporta, NUNCA conserta o código-fonte (escopo da
+  vaga: identificar/documentar bugs, não corrigir).
+- Testes: mecanismo com FakeLLM (test_agent.py) + isolamento de score
+  (test_report.py). 52 testes, CI verde.
+
+PENDÊNCIA: verificação e2e ao vivo (run real salvo em raw/) bloqueada por quota
+do Gemini (503 + 429) em 2026-06-19 — por isso "implementada", não "verificado".
+Um 1º run real provou o mecanismo, mas o agente consertou o fonte (scope creep),
+o que a regra "não consertar" agora bloqueia. Fechar #9 após o run ao vivo.
 
 Bugs semânticos que a AST não enxerga (off-by-one, condição de borda invertida,
 código que contradiz a docstring, argumentos trocados) detectados via LLM —
