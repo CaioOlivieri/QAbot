@@ -2,6 +2,8 @@
 name = "qabot"
 version = "0.1.0"
 description = "AI agent for automated QA on Python projects"
+license = "MIT"
+authors = [{ name = "Caio Olivieri" }]
 requires-python = ">=3.13"
 dependencies = [
     "google-genai>=1.0.0",
