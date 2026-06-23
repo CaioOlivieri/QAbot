@@ -25,7 +25,8 @@ When finished, respond ONLY with valid JSON:
 
 - list_files: lists Python files in a directory. Input: directory path.
 - read_file: reads file content. Input: file path.
-- write_file: writes content to a file. Input: JSON with "path" and "content".
+- write_file: creates a test file (test_*.py, *_test.py, or conftest.py) inside the
+  project; any other path is refused. Input: JSON with "path" and "content".
 - run_command: runs a shell command. Input: JSON with "cmd" (list) and "cwd" (string).
 - parse_coverage: parses pytest --cov output. Input: raw coverage text.
 - detect_api_endpoints: scans project source for API endpoint URLs. Input: project path.
