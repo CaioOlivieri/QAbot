@@ -138,6 +138,21 @@ def test_dispatch_unknown_tool_returns_message() -> None:
     assert core._dispatch("mystery", "", "/proj") == "Unknown tool: mystery"
 
 
+def test_tool_error_does_not_crash_run(monkeypatch) -> None:
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    with (
+        patch.object(core, "load_dotenv"),
+        patch.object(core, "genai"),
+        patch.object(core, "_call_llm", side_effect=[_ACTION, _FINAL]),
+        patch.object(core, "_dispatch", side_effect=RuntimeError("boom")) as dispatch,
+        patch.object(core, "generate_report", return_value="# report"),
+        patch.object(core, "_write_report", return_value="report.md"),
+    ):
+        result = core.run_agent("/proj")
+    dispatch.assert_called_once()
+    assert result == "analysis complete"
+
+
 def test_accumulate_coverage_fills_before_then_after() -> None:
     findings = core.Findings()
     core._accumulate_findings("parse_coverage", "", "{'m.py': 50.0}", findings, "")
