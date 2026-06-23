@@ -161,7 +161,7 @@ def test_parse_pytest_failures_multiple_blocks() -> None:
 
 def test_detect_api_endpoints_finds_url() -> None:
     py_content = 'base = "https://api.example.com/v1/resource"'
-    with patch("qabot.tools.api.glob.glob", return_value=["f.py"]):
+    with patch("qabot.tools.api.list_files", return_value=["f.py"]):
         with patch("builtins.open", mock_open(read_data=py_content)):
             result = detect_api_endpoints("/proj")
     assert "https://api.example.com/v1/resource" in result
@@ -169,7 +169,7 @@ def test_detect_api_endpoints_finds_url() -> None:
 
 def test_detect_api_endpoints_deduplicates() -> None:
     py_content = 'a = "https://x.com"\nb = "https://x.com"'
-    with patch("qabot.tools.api.glob.glob", return_value=["f.py"]):
+    with patch("qabot.tools.api.list_files", return_value=["f.py"]):
         with patch("builtins.open", mock_open(read_data=py_content)):
             result = detect_api_endpoints("/proj")
     assert result.count("https://x.com") == 1
