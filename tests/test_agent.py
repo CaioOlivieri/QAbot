@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from unittest.mock import mock_open, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
@@ -216,6 +216,24 @@ def test_call_llm_with_retry_reraises_other_errors(monkeypatch) -> None:
     monkeypatch.setattr(core, "_call_llm", boom)
     with pytest.raises(ValueError):
         core._call_llm_with_retry(None, [])
+
+
+def test_call_llm_uses_model_from_env(monkeypatch) -> None:
+    monkeypatch.setenv("QABOT_MODEL", "gemini-2.5-flash")
+    client = MagicMock()
+    client.models.generate_content.return_value = MagicMock(text="{}")
+    core._call_llm(client, [{"role": "user", "content": "hi"}])
+    kwargs = client.models.generate_content.call_args.kwargs
+    assert kwargs["model"] == "gemini-2.5-flash"
+
+
+def test_call_llm_defaults_model_when_env_absent(monkeypatch) -> None:
+    monkeypatch.delenv("QABOT_MODEL", raising=False)
+    client = MagicMock()
+    client.models.generate_content.return_value = MagicMock(text="{}")
+    core._call_llm(client, [{"role": "user", "content": "hi"}])
+    kwargs = client.models.generate_content.call_args.kwargs
+    assert kwargs["model"] == "gemini-2.5-flash-lite"
 
 
 def test_final_answer_terminates_loop(monkeypatch) -> None:
