@@ -339,16 +339,19 @@ def run_agent(project_path: str) -> str:
         action_input: str | dict[str, object] = parsed.get("action_input", "")
 
         if action:
-            result = _dispatch(action, action_input, state.project_path)
+            try:
+                result = _dispatch(action, action_input, state.project_path)
+            except Exception as exc:
+                result = f"Tool error in {action}: {exc}"
+            else:
+                last_run_output = _accumulate_findings(
+                    action, action_input, result, findings, last_run_output
+                )
             messages.append(
                 {
                     "role": "user",
                     "content": f"Tool result for {action}: {result}",
                 }
-            )
-
-            last_run_output = _accumulate_findings(
-                action, action_input, result, findings, last_run_output
             )
         else:
             messages.append(
