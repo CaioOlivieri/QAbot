@@ -1,12 +1,7 @@
 import os
 from datetime import datetime
 from pathlib import Path
-
-try:
-    from zoneinfo import ZoneInfo
-except ImportError:
-    from backports.zoneinfo import ZoneInfo  # Python < 3.9 fallback
-
+from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent.parent
 REPORTS_DIR = ROOT / "reports"
