@@ -55,6 +55,23 @@ ruff check .
 
 ---
 
+## Security model
+
+qabot runs on the user's machine and acts on a *trusted local* project:
+
+- `run_command` (`tools/runner.py`) executes shell commands chosen by the LLM,
+  with no allowlist or sandbox. This is intentional — the agent needs to run
+  `pytest`, `ruff`, etc. — but it means a prompt-injected or mistaken model can
+  run arbitrary commands. Only point qabot at projects you trust.
+- `write_file` is contained: the dispatcher refuses any path that escapes the
+  analyzed project or is not a test file (`test_*.py`, `*_test.py`,
+  `conftest.py`), so the agent cannot modify source even if it tries.
+- `test_api_endpoint` issues requests to any URL found in the source. Expect
+  outbound network calls when analyzing projects with hard-coded URLs.
+- Never read or expose `.env.keys` (already git-ignored).
+
+---
+
 ## Knowledge base
 
 This repo maintains a wiki in `./wiki/` (LLM-Wiki format). Before any architecture
