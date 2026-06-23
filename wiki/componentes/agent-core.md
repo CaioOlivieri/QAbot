@@ -1,7 +1,7 @@
 # agent/core.py
 status: integrado
 fontes: qabot/agent/core.py
-atualizado: 2026-06-19
+atualizado: 2026-06-23
  
 Loop ReAct. `run_agent(project_path)` chama o LLM (gemini-2.5-flash-lite),
 parseia JSON {thought, action, action_input} ou {thought, final_answer},
@@ -18,3 +18,9 @@ generate_report no fim, escrevendo o relatório em
 Layer 1.5: as actions report_suspected_bug/resolve_suspected_bug alimentam
 Findings.suspected_bugs; _resolve_suspicion confirma só se o último run de teste
 capturado falhou (parse_pytest_failures), senão descarta.
+
+PR #23: write_file passa por `_resolve_write_path` no `_dispatch` — só grava
+arquivo de teste (test_*.py/*_test.py/conftest.py) dentro do project_path;
+qualquer outro caminho é recusado (fronteira de confiança, não mais só o prompt).
+A acumulação de Findings do loop foi extraída para `_accumulate_findings` (pura).
+Ver [[_estado-de-integracao]].

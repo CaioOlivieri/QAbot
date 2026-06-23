@@ -1,0 +1,36 @@
+# PR #23 quality cleanup pass (rebase-merged into main 2026-06-23)
+# checks - real execution output
+
+ruff format --check .
+17 files already formatted
+
+ruff check .
+All checks passed!
+
+pytest -q
+...............................................................          [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.14/site-packages/google/genai/types.py:42
+  /home/tensonox/Projetos/QAbot/.venv/lib/python3.14/site-packages/google/genai/types.py:42: DeprecationWarning: '_UnionGenericAlias' is deprecated and slated for removal in Python 3.17
+    VersionedUnionType = Union[builtin_types.UnionType, _UnionGenericAlias]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.14.4-final-0 ________________
+
+Name                      Stmts   Miss  Cover   Missing
+-------------------------------------------------------
+qabot/__init__.py             0      0   100%
+qabot/__main__.py            12      1    92%   18
+qabot/agent/__init__.py       0      0   100%
+qabot/agent/core.py         237     34    86%   38-50, 75, 77, 89, 143, 155-158, 160-161, 163-164, 166-172, 174-175, 177-179, 181, 183, 204, 209, 278-284, 335
+qabot/agent/prompts.py        1      0   100%
+qabot/agent/report.py        84      2    98%   28, 95
+qabot/tools/__init__.py       0      0   100%
+qabot/tools/analyzer.py      35      4    89%   61, 65-71
+qabot/tools/api.py           17      0   100%
+qabot/tools/fs.py            11      0   100%
+qabot/tools/runner.py        67      4    94%   18-19, 58-59
+-------------------------------------------------------
+TOTAL                       464     45    90%
+63 passed, 1 warning in 1.27s
