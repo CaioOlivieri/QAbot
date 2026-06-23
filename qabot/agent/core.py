@@ -209,6 +209,52 @@ def _resolve_suspicion(
     return "no matching suspicion"
 
 
+def _accumulate_findings(
+    action: str,
+    action_input: str | dict[str, object],
+    result: str,
+    findings: Findings,
+    last_run_output: str,
+) -> str:
+    if action == "parse_coverage":
+        data = ast.literal_eval(result)
+        if isinstance(data, dict):
+            if not findings.coverage_before:
+                findings.coverage_before = data
+            else:
+                findings.coverage_after = data
+    elif action == "analyze_project_ast":
+        data = ast.literal_eval(result)
+        if isinstance(data, list):
+            findings.ast_bugs.extend(data)
+    elif action == "parse_pytest_failures":
+        data = ast.literal_eval(result)
+        if isinstance(data, list):
+            findings.dynamic_bugs.extend(data)
+    elif action == "test_api_endpoint":
+        data = ast.literal_eval(result)
+        if isinstance(data, dict):
+            findings.api_results.append(data)
+    elif action == "run_command":
+        return result
+    elif action == "report_suspected_bug":
+        params = _ensure_dict(action_input)
+        findings.suspected_bugs.append(
+            {
+                "file": str(params.get("file", "")),
+                "line": int(params.get("line") or 0),
+                "description": str(params.get("description", "")),
+                "severity": str(params.get("severity", "warning")),
+                "status": "suspected",
+                "evidence": "",
+            }
+        )
+    elif action == "resolve_suspected_bug":
+        params = _ensure_dict(action_input)
+        _resolve_suspicion(findings, params, last_run_output)
+    return last_run_output
+
+
 def run_agent(project_path: str) -> str:
     load_dotenv(".env.keys")
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
@@ -282,42 +328,9 @@ def run_agent(project_path: str) -> str:
                 }
             )
 
-            if action == "parse_coverage":
-                data = ast.literal_eval(result)
-                if isinstance(data, dict):
-                    if not findings.coverage_before:
-                        findings.coverage_before = data
-                    else:
-                        findings.coverage_after = data
-            elif action == "analyze_project_ast":
-                data = ast.literal_eval(result)
-                if isinstance(data, list):
-                    findings.ast_bugs.extend(data)
-            elif action == "parse_pytest_failures":
-                data = ast.literal_eval(result)
-                if isinstance(data, list):
-                    findings.dynamic_bugs.extend(data)
-            elif action == "test_api_endpoint":
-                data = ast.literal_eval(result)
-                if isinstance(data, dict):
-                    findings.api_results.append(data)
-            elif action == "run_command":
-                last_run_output = result
-            elif action == "report_suspected_bug":
-                params = _ensure_dict(action_input)
-                findings.suspected_bugs.append(
-                    {
-                        "file": str(params.get("file", "")),
-                        "line": int(params.get("line") or 0),
-                        "description": str(params.get("description", "")),
-                        "severity": str(params.get("severity", "warning")),
-                        "status": "suspected",
-                        "evidence": "",
-                    }
-                )
-            elif action == "resolve_suspected_bug":
-                params = _ensure_dict(action_input)
-                _resolve_suspicion(findings, params, last_run_output)
+            last_run_output = _accumulate_findings(
+                action, action_input, result, findings, last_run_output
+            )
         else:
             messages.append(
                 {
