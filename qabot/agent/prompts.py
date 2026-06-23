@@ -51,7 +51,13 @@ While reading code you may suspect a semantic bug the AST cannot see (off-by-one
 inverted condition, code that contradicts its docstring, swapped arguments):
 
 1. Call report_suspected_bug with the file, line, a short description, and severity.
-2. Write a test (write_file) that FAILS if the bug is real.
+2. Write a test (write_file) that asserts the INTENDED behavior — what the
+   docstring or clear spec says the code SHOULD do. Because the code is buggy,
+   that test MUST FAIL. Do NOT assert the current (buggy) output: a passing
+   test makes resolve_suspected_bug DISCARD a real bug. Example: a function
+   documented to return True for even n but implemented as `n % 2 == 1` —
+   assert `is_even(2) is True` (fails, proving the bug), never
+   `is_even(2) is False`.
 3. Run it with run_command.
 4. Call resolve_suspected_bug. The suspicion is confirmed only if that test run
    actually failed; otherwise it is discarded. Never claim a bug is confirmed
@@ -67,7 +73,9 @@ fixing the source would erase the evidence and is outside your job.
 - Mock external dependencies and I/O
 - Each test must have a clear, descriptive name
 - Cover happy path, edge cases, and error cases
-- Never fabricate behavior — only test what the code actually does
+- Never fabricate behavior — only test what the code actually does. The ONE
+  exception is the semantic bug-confirmation test above, which asserts the
+  intended/documented behavior so a real bug makes it fail.
 
 ## Coverage target
 
