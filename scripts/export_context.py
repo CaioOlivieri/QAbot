@@ -28,7 +28,7 @@ SECURITY_FILES = {".env.keys"}
 SECURITY_EXTENSIONS = {".sqlite3", ".db"}
 
 
-def should_ignore(path: Path, rel: str) -> bool:
+def should_ignore(path: Path) -> bool:
     if path.is_dir():
         return path.name in IGNORED_DIRS
     name = path.name
@@ -47,15 +47,13 @@ def walk():
         root_path = Path(root_dir)
 
         # Filter directories
-        dirs[:] = [
-            d for d in dirs if not should_ignore(root_path / d, str(root_path / d))
-        ]
+        dirs[:] = [d for d in dirs if not should_ignore(root_path / d)]
 
         for file in files:
             fpath = root_path / file
             rel = fpath.relative_to(ROOT)
 
-            if should_ignore(fpath, str(rel)):
+            if should_ignore(fpath):
                 continue
             if fpath.suffix.lower() not in VALID_EXTENSIONS:
                 continue
