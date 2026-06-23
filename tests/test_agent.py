@@ -138,6 +138,34 @@ def test_dispatch_unknown_tool_returns_message() -> None:
     assert core._dispatch("mystery", "", "/proj") == "Unknown tool: mystery"
 
 
+def test_accumulate_coverage_fills_before_then_after() -> None:
+    findings = core.Findings()
+    core._accumulate_findings("parse_coverage", "", "{'m.py': 50.0}", findings, "")
+    core._accumulate_findings("parse_coverage", "", "{'m.py': 80.0}", findings, "")
+    assert findings.coverage_before == {"m.py": 50.0}
+    assert findings.coverage_after == {"m.py": 80.0}
+
+
+def test_accumulate_extends_ast_and_dynamic_and_api() -> None:
+    findings = core.Findings()
+    core._accumulate_findings(
+        "analyze_project_ast", "", "[{'severity': 'critical'}]", findings, ""
+    )
+    core._accumulate_findings(
+        "parse_pytest_failures", "", "[{'severity': 'warning'}]", findings, ""
+    )
+    core._accumulate_findings("test_api_endpoint", "", "{'passed': True}", findings, "")
+    assert findings.ast_bugs == [{"severity": "critical"}]
+    assert findings.dynamic_bugs == [{"severity": "warning"}]
+    assert findings.api_results == [{"passed": True}]
+
+
+def test_accumulate_run_command_returns_new_last_output() -> None:
+    findings = core.Findings()
+    out = core._accumulate_findings("run_command", "", "pytest output", findings, "old")
+    assert out == "pytest output"
+
+
 def test_final_answer_terminates_loop(monkeypatch) -> None:
     with _patched_agent(monkeypatch, [_FINAL]) as (call_llm, _disp, generate, _write):
         result = core.run_agent("/proj")
