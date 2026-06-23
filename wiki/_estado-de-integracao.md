@@ -1,7 +1,7 @@
 # Estado de Integração
 status: verificado
 fontes: qabot/agent/core.py, qabot/agent/prompts.py (lidos do repo, branch main)
-atualizado: 2026-06-15
+atualizado: 2026-06-23
  
 Verdade única sobre o que o agente realmente usa. README/AGENT.md divergem disto.
  
@@ -44,3 +44,21 @@ se o último run de teste falhou). Confirmados contam no score; suspeitos vão p
 "For Review" (fora do score). E2e ao vivo PENDENTE (quota Gemini) — por isso
 "implementado", não "verificado". Detalhe em
 [[projetos/layer-1-5-deteccao-semantica]].
+
+## Endurecimento de segurança & faxina de qualidade (PR #23, 2026-06-23)
+Passada de manutenibilidade (rebase-merge, 9 commits). Única mudança de
+comportamento *wired*: `write_file` agora é **contido** na fronteira de confiança
+do `_dispatch` — `_resolve_write_path` recusa caminho que escape do `project_path`
+ou que não seja arquivo de teste (`test_*.py`, `*_test.py`, `conftest.py`). Antes
+aceitava qualquer caminho; a regra "só cria teste, nunca edita fonte" vivia só no
+prompt e não era imposta. Também corrige caminho relativo que resolvia contra o
+CWD do processo, não o projeto-alvo. O prompt passou a declarar a restrição.
+
+Demais commits são internos, sem mudança de wiring: dedup das seções do relatório
+(`_by_severity` + `_section_suspicions`), `detect_api_endpoints` reusa
+`list_files`, acumulação de Findings extraída para `_accumulate_findings` (pura,
+testável), código morto removido (backports.zoneinfo, parâmetro `rel`) e rede de
+testes nova para as linhas do relatório e o entrypoint CLI.
+
+Verificado por execução real: [[raw/pr23-quality-cleanup-checks]] — ruff format e
+check limpos, 63 testes, cobertura total 90% (era 80%). CI verde no PR #23 (merged).
