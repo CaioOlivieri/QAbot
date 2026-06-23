@@ -40,7 +40,7 @@ def _call_llm(client: genai.Client, messages: list[dict[str, str]]) -> str:
         for m in messages
     ]
     response = client.models.generate_content(
-        model="gemini-2.5-flash-lite",
+        model=os.environ.get("QABOT_MODEL", "gemini-2.5-flash-lite"),
         contents=contents,
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT,
