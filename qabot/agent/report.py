@@ -30,6 +30,10 @@ def _fmt_delta(delta: float) -> str:
     return f"{sign}{delta:.1f}%"
 
 
+def _by_severity(bug: dict[str, object]) -> tuple[int, object, object]:
+    return (0 if bug["severity"] == "critical" else 1, bug["file"], bug["line"])
+
+
 def _section_ast_bugs(bugs: list[dict[str, object]]) -> str:
     lines: list[str] = [
         "## Static Bugs (AST)",
@@ -40,10 +44,7 @@ def _section_ast_bugs(bugs: list[dict[str, object]]) -> str:
     if not bugs:
         lines.append("No static bugs found.")
         return "\n".join(lines)
-    sorted_bugs = sorted(
-        bugs,
-        key=lambda b: (0 if b["severity"] == "critical" else 1, b["file"], b["line"]),
-    )
+    sorted_bugs = sorted(bugs, key=_by_severity)
     for b in sorted_bugs:
         lines.append(
             f"| {b['file']} | {b['line']} | {b['severity']} | "
@@ -62,10 +63,7 @@ def _section_dynamic_bugs(bugs: list[dict[str, object]]) -> str:
     if not bugs:
         lines.append("No dynamic bugs found.")
         return "\n".join(lines)
-    sorted_bugs = sorted(
-        bugs,
-        key=lambda b: (0 if b["severity"] == "critical" else 1, b["file"], b["line"]),
-    )
+    sorted_bugs = sorted(bugs, key=_by_severity)
     for b in sorted_bugs:
         lines.append(
             f"| {b['file']} | {b['line']} | {b['test_name']} | {b['severity']} | "
@@ -99,40 +97,45 @@ def _section_api(results: list[dict[str, object]]) -> str:
     return "\n".join(lines)
 
 
-def _section_semantic_bugs(suspected_bugs: list[dict[str, object]]) -> str:
-    confirmed = [b for b in suspected_bugs if b.get("status") == "confirmed"]
+def _section_suspicions(
+    suspected_bugs: list[dict[str, object]],
+    status: str,
+    title: str,
+    empty: str,
+) -> str:
+    matching = [b for b in suspected_bugs if b.get("status") == status]
     lines: list[str] = [
-        "## Semantic Bugs (LLM, confirmed by execution)",
+        title,
         "",
         "| File | Line | Severity | Description |",
         "| --- | --- | --- | --- |",
     ]
-    if not confirmed:
-        lines.append("No confirmed semantic bugs.")
+    if not matching:
+        lines.append(empty)
         return "\n".join(lines)
-    for b in sorted(confirmed, key=lambda b: (b["file"], b["line"])):
+    for b in sorted(matching, key=lambda b: (b["file"], b["line"])):
         lines.append(
             f"| {b['file']} | {b['line']} | {b['severity']} | {b['description']} |"
         )
     return "\n".join(lines)
+
+
+def _section_semantic_bugs(suspected_bugs: list[dict[str, object]]) -> str:
+    return _section_suspicions(
+        suspected_bugs,
+        "confirmed",
+        "## Semantic Bugs (LLM, confirmed by execution)",
+        "No confirmed semantic bugs.",
+    )
 
 
 def _section_suspected(suspected_bugs: list[dict[str, object]]) -> str:
-    suspected = [b for b in suspected_bugs if b.get("status") == "suspected"]
-    lines: list[str] = [
+    return _section_suspicions(
+        suspected_bugs,
+        "suspected",
         "## For Review (unverified suspicions — not scored)",
-        "",
-        "| File | Line | Severity | Description |",
-        "| --- | --- | --- | --- |",
-    ]
-    if not suspected:
-        lines.append("No unverified suspicions.")
-        return "\n".join(lines)
-    for b in sorted(suspected, key=lambda b: (b["file"], b["line"])):
-        lines.append(
-            f"| {b['file']} | {b['line']} | {b['severity']} | {b['description']} |"
-        )
-    return "\n".join(lines)
+        "No unverified suspicions.",
+    )
 
 
 def _compute_score(
