@@ -71,4 +71,3 @@ Thumbs.db
 .cursor/rules
 # manter .cursor/settings.json se quiser compartilhar configurações de time
 .env.keys
-wiki-init-qabot.sh
