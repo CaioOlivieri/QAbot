@@ -138,6 +138,23 @@ def test_dispatch_unknown_tool_returns_message() -> None:
     assert core._dispatch("mystery", "", "/proj") == "Unknown tool: mystery"
 
 
+def test_dispatch_acks_semantic_bug_tools() -> None:
+    assert core._dispatch("report_suspected_bug", {}, "/p") == "Suspected bug recorded."
+    assert (
+        core._dispatch("resolve_suspected_bug", {}, "/p")
+        == "Resolution recorded; outcome decided by the latest test run."
+    )
+
+
+def test_resolve_suspicion_skips_non_suspected_and_reports_no_match() -> None:
+    findings = core.Findings()
+    findings.suspected_bugs.append(
+        {"file": "m.py", "line": 7, "status": "confirmed", "evidence": ""}
+    )
+    result = core._resolve_suspicion(findings, {"file": "m.py", "line": 7}, "")
+    assert result == "no matching suspicion"
+
+
 def test_tool_error_does_not_crash_run(monkeypatch) -> None:
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     with (

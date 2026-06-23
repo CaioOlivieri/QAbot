@@ -1,6 +1,6 @@
 # Layer 1.5 — Detecção semântica (hipótese verificável)
-status: implementada
-atualizado: 2026-06-19
+status: verificado
+atualizado: 2026-06-23
 
 ## Implementação (2026-06-19, PR #21)
 Entregue em core.py / report.py / prompts.py:
@@ -16,10 +16,14 @@ Entregue em core.py / report.py / prompts.py:
 - Testes: mecanismo com FakeLLM (test_agent.py) + isolamento de score
   (test_report.py). 52 testes, CI verde.
 
-PENDÊNCIA: verificação e2e ao vivo (run real salvo em raw/) bloqueada por quota
-do Gemini (503 + 429) em 2026-06-19 — por isso "implementada", não "verificado".
-Um 1º run real provou o mecanismo, mas o agente consertou o fonte (scope creep),
-o que a regra "não consertar" agora bloqueia. Fechar #9 após o run ao vivo.
+VERIFICADO e2e (2026-06-23): run ao vivo limpo com `QABOT_MODEL=gemini-2.5-flash`
+contra `~/Projetos/qabot_target` (fixture: `is_even` invertido vs docstring,
+`last_index` off-by-one). O agente detectou ambos, escreveu testes
+`*_intended_behavior` que FALHARAM, e `_resolve_suspicion` os promoveu a
+`confirmed` — SEM tocar no `ops.py` (`git diff` vazio). Relatório do alvo lista os
+2 sob "Semantic Bugs (confirmed by execution)"; "For Review" vazio. Evidência em
+[[raw/issue9-e2e-run]]. Destravado por: prompt afirmando comportamento intended
+(PR #26), modelo configurável (PR #27), retry 503/429 (PR #25), tool-error (PR #28).
 
 Bugs semânticos que a AST não enxerga (off-by-one, condição de borda invertida,
 código que contradiz a docstring, argumentos trocados) detectados via LLM —
