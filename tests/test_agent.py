@@ -110,10 +110,28 @@ def test_dispatch_routes_string_input_to_list_files() -> None:
 def test_dispatch_parses_dict_input_for_write_file() -> None:
     with patch.object(core, "write_file") as write_file:
         result = core._dispatch(
-            "write_file", {"path": "a.py", "content": "x = 1"}, "/proj"
+            "write_file", {"path": "tests/test_a.py", "content": "x = 1"}, "/proj"
         )
-    write_file.assert_called_once_with("a.py", "x = 1")
+    write_file.assert_called_once_with("/proj/tests/test_a.py", "x = 1")
     assert result == "File written successfully."
+
+
+def test_dispatch_write_file_refuses_non_test_file() -> None:
+    with patch.object(core, "write_file") as write_file:
+        result = core._dispatch(
+            "write_file", {"path": "qabot/core.py", "content": "x = 1"}, "/proj"
+        )
+    write_file.assert_not_called()
+    assert result.startswith("Refused")
+
+
+def test_dispatch_write_file_refuses_path_escaping_project() -> None:
+    with patch.object(core, "write_file") as write_file:
+        result = core._dispatch(
+            "write_file", {"path": "../evil/test_x.py", "content": "x = 1"}, "/proj"
+        )
+    write_file.assert_not_called()
+    assert result.startswith("Refused")
 
 
 def test_dispatch_unknown_tool_returns_message() -> None:
