@@ -50,6 +50,35 @@ def _call_llm(client: genai.Client, messages: list[dict[str, str]]) -> str:
     return response.text
 
 
+_RETRY_429_SLEEP = 60
+_RETRY_503_SLEEP = 10
+_MAX_503_RETRIES = 5
+
+
+def _call_llm_with_retry(client: genai.Client, messages: list[dict[str, str]]) -> str:
+    unavailable_retries = 0
+    while True:
+        try:
+            return _call_llm(client, messages)
+        except Exception as exc:
+            exc_text = str(exc)
+            if "429" in exc_text or "RESOURCE_EXHAUSTED" in exc_text:
+                print("Rate limited (429). Sleeping 60s before retry...")
+                time.sleep(_RETRY_429_SLEEP)
+            elif ("503" in exc_text or "UNAVAILABLE" in exc_text) and (
+                unavailable_retries < _MAX_503_RETRIES
+            ):
+                unavailable_retries += 1
+                print(
+                    f"Model unavailable (503). "
+                    f"Retry {unavailable_retries}/{_MAX_503_RETRIES} "
+                    f"in {_RETRY_503_SLEEP}s..."
+                )
+                time.sleep(_RETRY_503_SLEEP)
+            else:
+                raise
+
+
 _FENCE = re.compile(r"^```[a-zA-Z0-9]*\s*\n?(.*?)\n?```$", re.DOTALL)
 _TRAILING_COMMA = re.compile(r",(\s*[}\]])")
 _TEST_FILE = re.compile(r"^(test_.+\.py|.+_test\.py|conftest\.py)$")
@@ -271,17 +300,7 @@ def run_agent(project_path: str) -> str:
 
     for iteration in range(state.max_iterations):
         print(f"--- Iteration {iteration} ---")
-        while True:
-            try:
-                response_text = _call_llm(client, messages)
-                break
-            except Exception as exc:
-                exc_text = str(exc)
-                if "429" in exc_text or "RESOURCE_EXHAUSTED" in exc_text:
-                    print("Rate limited. Sleeping 60s before retry...")
-                    time.sleep(60)
-                else:
-                    raise
+        response_text = _call_llm_with_retry(client, messages)
         messages.append({"role": "model", "content": response_text})
 
         try:

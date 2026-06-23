@@ -166,6 +166,58 @@ def test_accumulate_run_command_returns_new_last_output() -> None:
     assert out == "pytest output"
 
 
+def _raise_then_return(errors: list[Exception], value: str):
+    seq: list = [*errors, value]
+
+    def fake(client, messages):
+        item = seq.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+    return fake
+
+
+def test_call_llm_with_retry_recovers_from_503(monkeypatch) -> None:
+    monkeypatch.setattr(core.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(
+        core, "_call_llm", _raise_then_return([Exception("503 UNAVAILABLE")], "ok")
+    )
+    assert core._call_llm_with_retry(None, []) == "ok"
+
+
+def test_call_llm_with_retry_recovers_from_429(monkeypatch) -> None:
+    monkeypatch.setattr(core.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(
+        core,
+        "_call_llm",
+        _raise_then_return([Exception("429 RESOURCE_EXHAUSTED")], "ok"),
+    )
+    assert core._call_llm_with_retry(None, []) == "ok"
+
+
+def test_call_llm_with_retry_gives_up_after_max_503(monkeypatch) -> None:
+    monkeypatch.setattr(core.time, "sleep", lambda _s: None)
+
+    def always_503(client, messages):
+        raise RuntimeError("503 UNAVAILABLE high demand")
+
+    monkeypatch.setattr(core, "_call_llm", always_503)
+    with pytest.raises(RuntimeError, match="503"):
+        core._call_llm_with_retry(None, [])
+
+
+def test_call_llm_with_retry_reraises_other_errors(monkeypatch) -> None:
+    monkeypatch.setattr(core.time, "sleep", lambda _s: None)
+
+    def boom(client, messages):
+        raise ValueError("400 invalid argument")
+
+    monkeypatch.setattr(core, "_call_llm", boom)
+    with pytest.raises(ValueError):
+        core._call_llm_with_retry(None, [])
+
+
 def test_final_answer_terminates_loop(monkeypatch) -> None:
     with _patched_agent(monkeypatch, [_FINAL]) as (call_llm, _disp, generate, _write):
         result = core.run_agent("/proj")
