@@ -107,7 +107,7 @@ The agent runs a **ReAct loop** (Reason + Act): at each iteration it reasons abo
 
 **No framework.** The ReAct loop is implemented from scratch — no LangChain, no LangGraph, no smolagents. Every line is intentional and explainable.
 
-**Gemini 2.5 Flash Lite.** Free tier with enough quota for development and demos. Swappable via environment variable.
+**Gemini 2.5 Flash Lite.** Free tier with enough quota for development and demos. Swappable via the `QABOT_MODEL` environment variable (default `gemini-2.5-flash-lite`) — e.g. `QABOT_MODEL=gemini-2.5-flash`.
 
 **CLI first.** No UI. Designed for CI/CD integration — pipe it, script it, automate it.
 
