@@ -1,14 +1,14 @@
-import glob
-import os
 import re
 
 import httpx
+
+from qabot.tools.fs import list_files
 
 
 def detect_api_endpoints(project_path: str) -> list[str]:
     urls: set[str] = set()
     pattern = re.compile(r"https?://[^\s\"'`\)]+")
-    for filepath in glob.glob(os.path.join(project_path, "**/*.py"), recursive=True):
+    for filepath in list_files(project_path):
         with open(filepath) as f:
             content = f.read()
         urls.update(url.rstrip(".,;:)]}\"'`") for url in pattern.findall(content))
