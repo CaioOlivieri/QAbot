@@ -52,6 +52,7 @@ def _call_llm(client: genai.Client, messages: list[dict[str, str]]) -> str:
 
 _FENCE = re.compile(r"^```[a-zA-Z0-9]*\s*\n?(.*?)\n?```$", re.DOTALL)
 _TRAILING_COMMA = re.compile(r",(\s*[}\]])")
+_TEST_FILE = re.compile(r"^(test_.+\.py|.+_test\.py|conftest\.py)$")
 
 
 def _strip_code_fence(text: str) -> str:
@@ -123,6 +124,16 @@ def _ensure_dict(data: str | dict[str, object]) -> dict[str, object]:
     return data if isinstance(data, dict) else json.loads(data)
 
 
+def _resolve_write_path(path: str, project_path: str) -> str | None:
+    root = os.path.abspath(project_path)
+    candidate = path if os.path.isabs(path) else os.path.join(root, path)
+    target = os.path.abspath(candidate)
+    within_root = target == root or target.startswith(root + os.sep)
+    if within_root and _TEST_FILE.match(os.path.basename(target)):
+        return target
+    return None
+
+
 def _dispatch(
     action: str, action_input: str | dict[str, object], project_path: str
 ) -> str:
@@ -132,7 +143,13 @@ def _dispatch(
         return read_file(action_input)
     if action == "write_file":
         params = _ensure_dict(action_input)
-        write_file(str(params["path"]), str(params["content"]))
+        target = _resolve_write_path(str(params["path"]), project_path)
+        if target is None:
+            return (
+                "Refused: write_file only creates test files "
+                "(test_*.py, *_test.py, conftest.py) inside the project."
+            )
+        write_file(target, str(params["content"]))
         return "File written successfully."
     if action == "run_command":
         params = _ensure_dict(action_input)
