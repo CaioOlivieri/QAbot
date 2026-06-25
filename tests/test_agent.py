@@ -84,6 +84,12 @@ _INVALID = "this is not json"
 _PARSE_COVERAGE = (
     '{"thought": "coverage", "action": "parse_coverage", "action_input": "raw"}'
 )
+_EMPTY_DIFF = {
+    "new": [],
+    "regressed": [],
+    "resolved": [],
+    "coverage": {"before": 0.0, "after": 0.0, "delta": 0.0},
+}
 
 
 @contextmanager
@@ -96,6 +102,8 @@ def _patched_agent(monkeypatch, responses, dispatch_result="tool output"):
         patch.object(core, "_dispatch", return_value=dispatch_result) as dispatch,
         patch.object(core, "generate_report", return_value="# report") as generate,
         patch.object(core, "_write_report", return_value="report.md") as write,
+        patch.object(core, "current_commit", return_value=None),
+        patch.object(core, "record_run", return_value=({}, _EMPTY_DIFF)),
     ):
         yield call_llm, dispatch, generate, write
 
@@ -164,6 +172,8 @@ def test_tool_error_does_not_crash_run(monkeypatch) -> None:
         patch.object(core, "_dispatch", side_effect=RuntimeError("boom")) as dispatch,
         patch.object(core, "generate_report", return_value="# report"),
         patch.object(core, "_write_report", return_value="report.md"),
+        patch.object(core, "current_commit", return_value=None),
+        patch.object(core, "record_run", return_value=({}, _EMPTY_DIFF)),
     ):
         result = core.run_agent("/proj")
     dispatch.assert_called_once()
