@@ -70,9 +70,17 @@ defeitos) e `coverage.xml` (Cobertura, resumo por módulo). O `run_agent` regist
 run **antes** de gerar o report; o `record_run` persiste os `scores` por run para a
 tendência.
 
-## 3c — reconciliação prod-vs-QA (aberta, #32)
-Critical defect escape rate (DRE) via issues do GitHub — a métrica-título da vaga,
-também sobre o ledger da 3a.
+## 3c — reconciliação prod-vs-QA (entregue, #32)
+Critical defect escape rate / DRE — a métrica-título da vaga. Adapter
+`qabot/tools/github.py` (opt-in via `QABOT_PROD_REPO`, paginado, token só-leitura do
+env, host fixo `api.github.com`) ingere issues `bug`/`production` como
+`reconcile.ProductionBug`. `qabot/agent/reconcile.py` (puro) calcula:
+- **headline por contagem**: `escape_rate = D_crit / (E_crit + D_crit)`, DRE = inverso,
+  em janela configurável (`QABOT_DRE_WINDOW_DAYS`, default 90 — Capers Jones; ISBSG 30).
+  Um defeito em produção é escape **por definição** (não precisa de matching).
+- **diagnóstico secundário** `detection_breakdown` (stack-trace da issue → flagado /
+  não-detectado / unmatched). KPI no report ligado ao gate, com saúde vs o mínimo
+  profissional de 95% (Jones). Fonte e confounders documentados.
 
 ## Security hardening (issue #39)
 

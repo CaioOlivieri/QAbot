@@ -277,6 +277,42 @@ def _section_changes(diff: dict[str, object]) -> str:
     return "\n".join(lines)
 
 
+DRE_PROFESSIONAL_MINIMUM = 95.0  # Capers Jones: below 95% DRE is sub-professional.
+
+
+def _section_reconciliation(reconciliation: dict[str, object]) -> str:
+    escape = reconciliation["escape"]
+    breakdown = reconciliation["breakdown"]
+    window = reconciliation["window_days"]
+    assert isinstance(breakdown, dict)
+    lines = ["## Critical Defect Escape Rate (DRE)", ""]
+    if escape.escape_rate is None:
+        lines.append(
+            f"No critical defects recorded in QA or production (last {window} days)."
+        )
+    else:
+        meets = "✓ meets" if escape.dre >= DRE_PROFESSIONAL_MINIMUM else "✗ below"
+        lines.append(
+            f"**Critical escape rate: {escape.escape_rate:.1f}%** · "
+            f"DRE {escape.dre:.1f}% ({meets} the 95% professional minimum) — "
+            f"caught {escape.caught} / escaped {escape.escaped}, last {window} days"
+        )
+        lines += [
+            "",
+            f"Escaped-bug detection: {len(breakdown['flagged'])} flagged-but-shipped"
+            f" · {len(breakdown['undetected'])} undetected · "
+            f"{len(breakdown['unmatched'])} unmatched",
+        ]
+    lines += [
+        "",
+        "_DRE per Capers Jones, The Economics of Software Quality (2011): "
+        "caught / (caught + escaped); a production defect is an escape by definition. "
+        "Trailing window; confounders (bad-fix injection, inherited defects) not "
+        "modeled._",
+    ]
+    return "\n".join(lines)
+
+
 def generate_report(
     project_path: str,
     coverage_before: dict[str, float],
@@ -290,6 +326,7 @@ def generate_report(
     run_meta: dict[str, object] | None = None,
     previous_quality: float | None = None,
     thresholds: dict[str, float] | None = None,
+    reconciliation: dict[str, object] | None = None,
 ) -> str:
     scores = compute_scores(
         coverage_after, ast_bugs, dynamic_bugs, api_results, suspected_bugs
@@ -301,6 +338,10 @@ def generate_report(
                 scores, diff, previous_quality, thresholds or DEFAULT_THRESHOLDS
             ),
             "",
+        ]
+        if reconciliation is not None:
+            header += [_section_reconciliation(reconciliation), ""]
+        header += [
             _section_metadata(run_meta),
             "",
             _section_changes(diff),
