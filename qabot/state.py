@@ -172,6 +172,34 @@ def current_commit(project_path: str) -> str | None:
     return result.stdout.strip() or None
 
 
+def compute_diff(
+    state: dict[str, object],
+    ast_bugs: list[dict[str, object]],
+    dynamic_bugs: list[dict[str, object]],
+    suspected_bugs: list[dict[str, object]],
+    coverage: dict[str, float],
+) -> tuple[list[dict[str, object]], dict[str, object]]:
+    """Classify this run's findings against the ledger, *without* persisting.
+
+    Pure read-over of ``state``: returns ``(current_findings, diff)`` where the
+    diff carries ``new``/``regressed``/``resolved`` defect lists plus a
+    ``coverage`` delta vs the previous run. ``record_run`` builds on it to
+    append; the smoke CI gate uses it read-only so a pull request never writes
+    the trend of the default branch.
+    """
+    runs = state["runs"]
+    assert isinstance(runs, list)
+
+    previous = list(runs[-1]["findings"]) if runs else []
+    prev_coverage = dict(runs[-1]["coverage"]) if runs else {}
+    historical = {fingerprint(f) for run in runs for f in run["findings"]}
+
+    current = extract_findings(ast_bugs, dynamic_bugs, suspected_bugs)
+    diff = diff_findings(previous, current, historical)
+    diff["coverage"] = diff_coverage(prev_coverage, coverage)
+    return current, diff
+
+
 def record_run(
     project_path: str,
     ast_bugs: list[dict[str, object]],
@@ -187,16 +215,11 @@ def record_run(
     plus a ``coverage`` delta vs the previous run.
     """
     state = load_state(project_path)
+    current, diff = compute_diff(
+        state, ast_bugs, dynamic_bugs, suspected_bugs, coverage
+    )
     runs = state["runs"]
     assert isinstance(runs, list)
-
-    previous = list(runs[-1]["findings"]) if runs else []
-    prev_coverage = dict(runs[-1]["coverage"]) if runs else {}
-    historical = {fingerprint(f) for run in runs for f in run["findings"]}
-
-    current = extract_findings(ast_bugs, dynamic_bugs, suspected_bugs)
-    diff = diff_findings(previous, current, historical)
-    diff["coverage"] = diff_coverage(prev_coverage, coverage)
 
     new_fps = {fingerprint(f) for f in diff["new"]}
     regressed_fps = {fingerprint(f) for f in diff["regressed"]}

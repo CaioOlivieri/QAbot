@@ -195,9 +195,15 @@ def _count_new_criticals(diff: dict[str, object]) -> int:
     return sum(1 for f in appeared if f.get("severity") == "critical")
 
 
-def _gate(
+def evaluate_gate(
     coverage_score: float, diff: dict[str, object], thresholds: dict[str, float]
 ) -> tuple[str, list[str]]:
+    """The PASS/FAIL decision the gig is hired to make, as data.
+
+    Returns ``(verdict, reasons)`` where ``verdict`` is ``"PASS"`` or ``"FAIL"``
+    and ``reasons`` lists every failed threshold (empty on PASS). The report
+    renders this; the CI gate turns it into a process exit code.
+    """
     reasons: list[str] = []
     if not coverage_score > thresholds["min_coverage"]:
         reasons.append(
@@ -216,7 +222,7 @@ def _section_scorecard(
     previous_quality: float | None,
     thresholds: dict[str, float],
 ) -> str:
-    verdict, reasons = _gate(scores["coverage"], diff, thresholds)
+    verdict, reasons = evaluate_gate(scores["coverage"], diff, thresholds)
     cov_cmp = ">" if scores["coverage"] > thresholds["min_coverage"] else "≤"
     lines = [
         f"**Quality Score: {scores['quality']:.1f} / 100** "
