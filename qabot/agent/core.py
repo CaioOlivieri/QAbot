@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
+from qabot import notify
 from qabot.agent.exports import write_exports
 from qabot.agent.prompts import SYSTEM_PROMPT
 from qabot.agent.reconcile import (
@@ -18,7 +19,13 @@ from qabot.agent.reconcile import (
     escape_rate,
     within_window,
 )
-from qabot.agent.report import DEFAULT_THRESHOLDS, compute_scores, generate_report
+from qabot.agent.report import (
+    DEFAULT_THRESHOLDS,
+    compute_scores,
+    count_new_criticals,
+    evaluate_gate,
+    generate_report,
+)
 from qabot.state import current_commit, load_state, record_run, summarize_diff
 from qabot.tools.analyzer import analyze_project_ast
 from qabot.tools.api import detect_api_endpoints, test_api_endpoint
@@ -482,5 +489,20 @@ def run_agent(project_path: str) -> str:
     )
     print(f"Exports: {', '.join(os.path.basename(p) for p in export_paths)}")
     print(summarize_diff(diff))
+
+    verdict, reasons = evaluate_gate(scores["coverage"], diff, DEFAULT_THRESHOLDS)
+    escape_pct = reconciliation["escape"].escape_rate if reconciliation else None
+    notify.send(
+        notify.Summary(
+            project=project_path,
+            verdict=verdict,
+            reasons=reasons,
+            quality=scores["quality"],
+            previous_quality=previous_quality,
+            new_criticals=count_new_criticals(diff),
+            coverage=scores["coverage"],
+            escape_rate=escape_pct,
+        )
+    )
 
     return final_answer

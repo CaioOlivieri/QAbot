@@ -7,6 +7,13 @@ import qabot.agent.core as core
 from qabot.agent.core import _parse_agent_json, _write_report
 
 
+@pytest.fixture(autouse=True)
+def _silence_notify():
+    """run_agent notifies at the end; never fire real notifications in tests."""
+    with patch.object(core.notify, "send"):
+        yield
+
+
 def test_parses_plain_json() -> None:
     parsed = _parse_agent_json('{"action": "list_files", "action_input": "."}')
     assert parsed["action"] == "list_files"

@@ -1,7 +1,17 @@
 import os
 from unittest.mock import patch
 
+import pytest
+
 import qabot.agent.smoke as smoke
+
+
+@pytest.fixture(autouse=True)
+def _silence_notify():
+    """run_smoke notifies at the end; never fire real notifications in tests."""
+    with patch.object(smoke.notify, "send"):
+        yield
+
 
 _PYTEST_OUTPUT = (
     "Name                  Stmts   Miss  Cover\n"

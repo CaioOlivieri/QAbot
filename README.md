@@ -105,6 +105,15 @@ QAbot ships a ready-to-use GitHub Actions workflow ([`.github/workflows/qa-gate.
 2. **Add the `GEMINI_API_KEY` secret** (for the scheduled regression only) under *Settings → Secrets and variables → Actions → New repository secret*. The smoke gate does **not** use it.
 3. **Make the gate a required check** — *Settings → Branches → Branch protection rules → Require status checks to pass* → select **QA Gate / smoke**. Now a PR that drops coverage or introduces a critical defect cannot be merged.
 
+### Notifications (Slack + GitHub PR comment)
+
+QAbot can deliver the gate verdict where the team works, instead of only writing a file. Both channels are **opt-in by configuration** and a silent no-op when unset, so the CLI-only flow is unchanged.
+
+- **Slack** — set the `SLACK_WEBHOOK_URL` secret (an [incoming webhook](https://api.slack.com/messaging/webhooks)). Every run then posts a concise summary: quality score + trend, gate verdict, new criticals, critical escape rate, and a link to the run.
+- **GitHub PR comment** — on a pull request, QAbot upserts a single comment with the same summary. It uses the built-in `GITHUB_TOKEN` and the workflow's `pull-requests: write` permission (already set in `qa-gate.yml`). On **fork PRs** the token is read-only, so the comment is skipped there (same constraint as secrets).
+
+Egress for notifications is operator-configured (your webhook, `api.github.com`) and is therefore independent of `QABOT_ALLOW_NETWORK` (which gates the agent's testing of untrusted URLs); the Slack URL still passes the same SSRF check as defence in depth.
+
 ### Notes
 
 - The trend is established by the first scheduled regression (or a manual `qabot . --tier regression`). Until then the smoke gate still enforces coverage and catches newly added criticals.
@@ -120,6 +129,7 @@ QAbot ships a ready-to-use GitHub Actions workflow ([`.github/workflows/qa-gate.
 qabot/
 ├── __main__.py        # CLI entrypoint (--tier regression|smoke)
 ├── state.py           # persistent defect ledger + run-over-run diff
+├── notify.py          # Slack + GitHub PR-comment notifications (opt-in)
 ├── agent/
 │   ├── core.py        # ReAct loop (regression tier)
 │   ├── smoke.py       # deterministic, LLM-free CI gate (smoke tier)

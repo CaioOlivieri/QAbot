@@ -20,6 +20,9 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10 # deterministic and fast (~1 min); guard against a hung run
+    permissions:
+      contents: read
+      pull-requests: write # post the QAbot summary comment (read-only on fork PRs)
     steps:
       - uses: actions/checkout@v4
 
@@ -34,6 +37,10 @@ jobs:
 
       - name: QA smoke gate
         # Exits non-zero on gate FAIL -> fails this required check.
+        # Notifications are a no-op unless the secrets below are configured.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: uv run --no-sync qabot . --tier smoke --source qabot
 
       - name: Upload QA report and exports
@@ -67,6 +74,7 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           QABOT_MODEL: gemini-2.5-flash
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} # no-op if unset
         run: uv run --no-sync qabot . --tier regression
 
       - name: Persist defect trend
