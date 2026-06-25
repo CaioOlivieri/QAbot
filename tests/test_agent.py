@@ -142,6 +142,27 @@ def test_dispatch_write_file_refuses_path_escaping_project() -> None:
     assert result.startswith("Refused")
 
 
+def test_dispatch_read_file_reads_inside_project() -> None:
+    with patch.object(core, "read_file", return_value="content") as read_file:
+        result = core._dispatch("read_file", "sub/a.py", "/proj")
+    read_file.assert_called_once_with("/proj/sub/a.py")
+    assert result == "content"
+
+
+def test_dispatch_read_file_refuses_traversal() -> None:
+    with patch.object(core, "read_file") as read_file:
+        result = core._dispatch("read_file", "../evil.py", "/proj")
+    read_file.assert_not_called()
+    assert result.startswith("Refused")
+
+
+def test_dispatch_read_file_refuses_absolute_outside() -> None:
+    with patch.object(core, "read_file") as read_file:
+        result = core._dispatch("read_file", "/etc/passwd", "/proj")
+    read_file.assert_not_called()
+    assert result.startswith("Refused")
+
+
 def test_dispatch_unknown_tool_returns_message() -> None:
     assert core._dispatch("mystery", "", "/proj") == "Unknown tool: mystery"
 
