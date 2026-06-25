@@ -1,8 +1,9 @@
+import socket
 import subprocess
 from unittest.mock import MagicMock, mock_open, patch
 
 from qabot.tools.analyzer import analyze_file_ast, analyze_project_ast
-from qabot.tools.api import detect_api_endpoints
+from qabot.tools.api import _resolve_ips, detect_api_endpoints
 from qabot.tools.api import test_api_endpoint as call_endpoint
 from qabot.tools.fs import list_files, read_file, write_file
 from qabot.tools.runner import parse_coverage, parse_pytest_failures, run_command
@@ -194,30 +195,99 @@ def test_detect_api_endpoints_deduplicates() -> None:
     assert result.count("https://x.com") == 1
 
 
-def test_test_api_endpoint_passed() -> None:
+def test_test_api_endpoint_passed(monkeypatch) -> None:
+    monkeypatch.setenv("QABOT_ALLOW_NETWORK", "1")
     mock_resp = MagicMock()
     mock_resp.status_code = 200
-    with patch("qabot.tools.api.httpx.request", return_value=mock_resp):
+    with (
+        patch("qabot.tools.api._resolve_ips", return_value=["93.184.216.34"]),
+        patch("qabot.tools.api.httpx.request", return_value=mock_resp),
+    ):
         result = call_endpoint("https://x.com")
     assert result["passed"] is True
     assert result["error"] == ""
 
 
-def test_test_api_endpoint_wrong_status() -> None:
+def test_test_api_endpoint_wrong_status(monkeypatch) -> None:
+    monkeypatch.setenv("QABOT_ALLOW_NETWORK", "1")
     mock_resp = MagicMock()
     mock_resp.status_code = 404
-    with patch("qabot.tools.api.httpx.request", return_value=mock_resp):
+    with (
+        patch("qabot.tools.api._resolve_ips", return_value=["93.184.216.34"]),
+        patch("qabot.tools.api.httpx.request", return_value=mock_resp),
+    ):
         result = call_endpoint("https://x.com", expected_status=200)
     assert result["passed"] is False
     assert result["status_code"] == 404
 
 
-def test_test_api_endpoint_network_error() -> None:
-    with patch("qabot.tools.api.httpx.request", side_effect=Exception("timeout")):
+def test_test_api_endpoint_network_error(monkeypatch) -> None:
+    monkeypatch.setenv("QABOT_ALLOW_NETWORK", "1")
+    with (
+        patch("qabot.tools.api._resolve_ips", return_value=["93.184.216.34"]),
+        patch("qabot.tools.api.httpx.request", side_effect=Exception("timeout")),
+    ):
         result = call_endpoint("https://x.com")
     assert result["passed"] is False
     assert result["status_code"] == 0
     assert "timeout" in result["error"]
+
+
+def test_test_api_endpoint_disabled_by_default(monkeypatch) -> None:
+    monkeypatch.delenv("QABOT_ALLOW_NETWORK", raising=False)
+    with patch("qabot.tools.api.httpx.request") as request:
+        result = call_endpoint("https://x.com")
+    request.assert_not_called()
+    assert result["passed"] is False
+    assert "disabled" in result["error"]
+
+
+def test_test_api_endpoint_refuses_private_ip(monkeypatch) -> None:
+    monkeypatch.setenv("QABOT_ALLOW_NETWORK", "1")
+    with (
+        patch("qabot.tools.api._resolve_ips", return_value=["10.0.0.5"]),
+        patch("qabot.tools.api.httpx.request") as request,
+    ):
+        result = call_endpoint("https://internal.example")
+    request.assert_not_called()
+    assert result["passed"] is False
+    assert "non-public" in result["error"]
+
+
+def test_test_api_endpoint_refuses_link_local_metadata(monkeypatch) -> None:
+    monkeypatch.setenv("QABOT_ALLOW_NETWORK", "1")
+    with (
+        patch("qabot.tools.api._resolve_ips", return_value=["169.254.169.254"]),
+        patch("qabot.tools.api.httpx.request") as request,
+    ):
+        result = call_endpoint("https://metadata.example")
+    request.assert_not_called()
+    assert "non-public" in result["error"]
+
+
+def test_test_api_endpoint_refuses_url_without_host(monkeypatch) -> None:
+    monkeypatch.setenv("QABOT_ALLOW_NETWORK", "1")
+    with patch("qabot.tools.api.httpx.request") as request:
+        result = call_endpoint("not-a-url")
+    request.assert_not_called()
+    assert "no host" in result["error"]
+
+
+def test_test_api_endpoint_refuses_unresolvable_host(monkeypatch) -> None:
+    monkeypatch.setenv("QABOT_ALLOW_NETWORK", "1")
+    with (
+        patch("qabot.tools.api._resolve_ips", side_effect=socket.gaierror),
+        patch("qabot.tools.api.httpx.request") as request,
+    ):
+        result = call_endpoint("https://nope.invalid")
+    request.assert_not_called()
+    assert "cannot resolve" in result["error"]
+
+
+def test_resolve_ips_extracts_addresses() -> None:
+    getaddrinfo_result = [(2, 1, 6, "", ("93.184.216.34", 0))]
+    with patch("qabot.tools.api.socket.getaddrinfo", return_value=getaddrinfo_result):
+        assert _resolve_ips("example.com") == ["93.184.216.34"]
 
 
 # ─── analyzer ────────────────────────────────────────────────────────────────
