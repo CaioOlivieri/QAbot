@@ -1,3 +1,4 @@
+import subprocess
 from unittest.mock import MagicMock, mock_open, patch
 
 from qabot.tools.analyzer import analyze_file_ast, analyze_project_ast
@@ -42,6 +43,24 @@ def test_run_command_returns_tuple() -> None:
     assert rc == 0
     assert out == "out"
     assert err == ""
+
+
+def test_run_command_passes_default_timeout() -> None:
+    mock_result = MagicMock(returncode=0, stdout="", stderr="")
+    with patch("qabot.tools.runner.subprocess.run", return_value=mock_result) as run:
+        run_command(["ls"], "/")
+    assert run.call_args.kwargs["timeout"] == 120
+
+
+def test_run_command_timeout_returns_124_with_partial_output() -> None:
+    timeout_exc = subprocess.TimeoutExpired(
+        cmd=["sleep"], timeout=120, output="partial", stderr=""
+    )
+    with patch("qabot.tools.runner.subprocess.run", side_effect=timeout_exc):
+        rc, out, err = run_command(["sleep", "999"], "/")
+    assert rc == 124
+    assert out == "partial"
+    assert "timed out" in err
 
 
 _COVERAGE_OUTPUT = (
