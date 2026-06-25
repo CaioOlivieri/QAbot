@@ -37,3 +37,4 @@ The agent must never let untrusted input escape the project root, reach private 
 - **No production credentials** in the environment.
 - **Restricted network egress** — keep API testing disabled (`QABOT_ALLOW_NETWORK` unset) unless the target project is trusted.
 - Treat every output from the agent (reports, test files) as untrusted until reviewed.
+- Production reconciliation (DRE) fetches GitHub issues from a **fixed host** (`api.github.com`) using a URL built from config — not from target content — so it is **not** an SSRF surface. The `GITHUB_TOKEN` is optional, read-only, and read from the environment only (never logged or committed).

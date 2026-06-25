@@ -12,11 +12,18 @@ from google.genai import types
 
 from qabot.agent.exports import write_exports
 from qabot.agent.prompts import SYSTEM_PROMPT
+from qabot.agent.reconcile import (
+    DEFAULT_DRE_WINDOW_DAYS,
+    detection_breakdown,
+    escape_rate,
+    within_window,
+)
 from qabot.agent.report import DEFAULT_THRESHOLDS, compute_scores, generate_report
 from qabot.state import current_commit, load_state, record_run, summarize_diff
 from qabot.tools.analyzer import analyze_project_ast
 from qabot.tools.api import detect_api_endpoints, test_api_endpoint
 from qabot.tools.fs import list_files, read_file, write_file
+from qabot.tools.github import fetch_production_bugs
 from qabot.tools.runner import parse_coverage, parse_pytest_failures, run_command
 
 
@@ -303,6 +310,18 @@ def _accumulate_findings(
     return last_run_output
 
 
+def _ledger_critical_summary(runs: list[dict[str, object]]) -> tuple[int, set[str]]:
+    """Unique critical defects QAbot caught and every file it flagged (basenames)."""
+    critical_fingerprints: set[str] = set()
+    flagged_files: set[str] = set()
+    for run in runs:
+        for finding in run["findings"]:
+            flagged_files.add(os.path.basename(str(finding["file"])))
+            if finding["severity"] == "critical":
+                critical_fingerprints.add(str(finding["fingerprint"]))
+    return len(critical_fingerprints), flagged_files
+
+
 def run_agent(project_path: str) -> str:
     load_dotenv(".env.keys")
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
@@ -420,6 +439,23 @@ def run_agent(project_path: str) -> str:
         "thresholds": DEFAULT_THRESHOLDS,
     }
 
+    production_bugs = fetch_production_bugs()
+    reconciliation = None
+    if production_bugs is not None:
+        window_days = int(
+            os.environ.get("QABOT_DRE_WINDOW_DAYS", DEFAULT_DRE_WINDOW_DAYS)
+        )
+        windowed = within_window(
+            production_bugs, window_days, str(current_run["timestamp"])
+        )
+        critical_bugs = [b for b in windowed if b.severity == "critical"]
+        caught_criticals, flagged_files = _ledger_critical_summary(runs)
+        reconciliation = {
+            "escape": escape_rate(caught_criticals, len(critical_bugs)),
+            "breakdown": detection_breakdown(critical_bugs, flagged_files),
+            "window_days": window_days,
+        }
+
     report_md = generate_report(
         project_path,
         findings.coverage_before,
@@ -431,6 +467,7 @@ def run_agent(project_path: str) -> str:
         diff=diff,
         run_meta=run_meta,
         previous_quality=previous_quality,
+        reconciliation=reconciliation,
     )
     report_path = _write_report(project_path, report_md)
     print(f"Report saved to {report_path}")

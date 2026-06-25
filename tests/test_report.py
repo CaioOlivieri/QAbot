@@ -1,5 +1,6 @@
 import re
 
+from qabot.agent.reconcile import EscapeRate
 from qabot.agent.report import compute_scores, generate_report
 
 
@@ -214,3 +215,51 @@ def test_scorecard_trend_down_and_flat() -> None:
         previous_quality=96.0,
     )
     assert "▬" in flat
+
+
+def test_report_renders_dre_kpi() -> None:
+    reconciliation = {
+        "escape": EscapeRate(caught=9, escaped=1, escape_rate=10.0, dre=90.0),
+        "breakdown": {"flagged": [1], "undetected": [], "unmatched": [2]},
+        "window_days": 90,
+    }
+    report = generate_report(
+        "/p",
+        {},
+        {"m.py": 90.0},
+        [],
+        [],
+        [],
+        [],
+        diff=_diff(),
+        run_meta=_run_meta(),
+        reconciliation=reconciliation,
+    )
+    assert "Critical Defect Escape Rate (DRE)" in report
+    assert "Critical escape rate: 10.0%" in report
+    assert "DRE 90.0%" in report
+    assert "✗ below the 95% professional minimum" in report
+    assert "Capers Jones" in report
+    assert "1 flagged-but-shipped" in report
+
+
+def test_report_dre_no_defects_in_window() -> None:
+    reconciliation = {
+        "escape": EscapeRate(0, 0, None, None),
+        "breakdown": {"flagged": [], "undetected": [], "unmatched": []},
+        "window_days": 30,
+    }
+    report = generate_report(
+        "/p",
+        {},
+        {},
+        [],
+        [],
+        [],
+        [],
+        diff=_diff(),
+        run_meta=_run_meta(),
+        reconciliation=reconciliation,
+    )
+    assert "No critical defects recorded" in report
+    assert "last 30 days" in report
