@@ -12,6 +12,7 @@ from google.genai import types
 
 from qabot.agent.prompts import SYSTEM_PROMPT
 from qabot.agent.report import generate_report
+from qabot.state import current_commit, load_state, record_run, summarize_diff
 from qabot.tools.analyzer import analyze_project_ast
 from qabot.tools.api import detect_api_endpoints, test_api_endpoint
 from qabot.tools.fs import list_files, read_file, write_file
@@ -290,6 +291,11 @@ def run_agent(project_path: str) -> str:
 
     state = AgentState(project_path=project_path)
     findings = Findings()
+
+    prior_runs = load_state(project_path)["runs"]
+    assert isinstance(prior_runs, list)
+    print(f"Defect ledger: {len(prior_runs)} prior run(s).")
+
     messages: list[dict[str, str]] = [
         {"role": "user", "content": f"Analyze the project at {project_path}"}
     ]
@@ -375,5 +381,16 @@ def run_agent(project_path: str) -> str:
     )
     report_path = _write_report(project_path, report_md)
     print(f"Report saved to {report_path}")
+
+    coverage = findings.coverage_after or findings.coverage_before
+    _, diff = record_run(
+        project_path,
+        findings.ast_bugs,
+        findings.dynamic_bugs,
+        findings.suspected_bugs,
+        coverage,
+        commit_sha=current_commit(project_path),
+    )
+    print(summarize_diff(diff))
 
     return final_answer
