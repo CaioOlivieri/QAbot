@@ -1,9 +1,19 @@
 import re
 import subprocess
 
+DEFAULT_COMMAND_TIMEOUT = 120
 
-def run_command(cmd: list[str], cwd: str) -> tuple[int, str, str]:
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
+
+def run_command(
+    cmd: list[str], cwd: str, timeout: int = DEFAULT_COMMAND_TIMEOUT
+) -> tuple[int, str, str]:
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, cwd=cwd, timeout=timeout
+        )
+    except subprocess.TimeoutExpired as exc:
+        stderr = f"{exc.stderr or ''}\nCommand timed out after {timeout}s.".strip()
+        return 124, exc.stdout or "", stderr
     return result.returncode, result.stdout, result.stderr
 
 
