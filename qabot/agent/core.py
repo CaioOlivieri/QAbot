@@ -10,8 +10,9 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
+from qabot.agent.exports import write_exports
 from qabot.agent.prompts import SYSTEM_PROMPT
-from qabot.agent.report import generate_report
+from qabot.agent.report import DEFAULT_THRESHOLDS, compute_scores, generate_report
 from qabot.state import current_commit, load_state, record_run, summarize_diff
 from qabot.tools.analyzer import analyze_project_ast
 from qabot.tools.api import detect_api_endpoints, test_api_endpoint
@@ -387,6 +388,38 @@ def run_agent(project_path: str) -> str:
     if final_answer is None:
         final_answer = "Max iterations reached without a final answer."
 
+    coverage = findings.coverage_after or findings.coverage_before
+    scores = compute_scores(
+        findings.coverage_after,
+        findings.ast_bugs,
+        findings.dynamic_bugs,
+        findings.api_results,
+        findings.suspected_bugs,
+    )
+    new_state, diff = record_run(
+        project_path,
+        findings.ast_bugs,
+        findings.dynamic_bugs,
+        findings.suspected_bugs,
+        coverage,
+        commit_sha=current_commit(project_path),
+        scores=scores,
+    )
+    runs = new_state["runs"]
+    assert isinstance(runs, list)
+    previous_quality = (
+        runs[-2]["scores"]["quality"]
+        if len(runs) >= 2 and isinstance(runs[-2].get("scores"), dict)
+        else None
+    )
+    current_run = runs[-1]
+    run_meta = {
+        "run_id": current_run["run_id"],
+        "timestamp": current_run["timestamp"],
+        "commit_sha": current_run["commit_sha"],
+        "thresholds": DEFAULT_THRESHOLDS,
+    }
+
     report_md = generate_report(
         project_path,
         findings.coverage_before,
@@ -395,19 +428,22 @@ def run_agent(project_path: str) -> str:
         findings.dynamic_bugs,
         findings.api_results,
         findings.suspected_bugs,
+        diff=diff,
+        run_meta=run_meta,
+        previous_quality=previous_quality,
     )
     report_path = _write_report(project_path, report_md)
     print(f"Report saved to {report_path}")
 
-    coverage = findings.coverage_after or findings.coverage_before
-    _, diff = record_run(
-        project_path,
+    export_paths = write_exports(
+        os.path.join(project_path, "reports"),
+        coverage,
         findings.ast_bugs,
         findings.dynamic_bugs,
         findings.suspected_bugs,
-        coverage,
-        commit_sha=current_commit(project_path),
+        DEFAULT_THRESHOLDS,
     )
+    print(f"Exports: {', '.join(os.path.basename(p) for p in export_paths)}")
     print(summarize_diff(diff))
 
     return final_answer

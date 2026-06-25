@@ -90,6 +90,17 @@ _EMPTY_DIFF = {
     "resolved": [],
     "coverage": {"before": 0.0, "after": 0.0, "delta": 0.0},
 }
+_STUB_STATE = {
+    "runs": [
+        {
+            "run_id": "r1",
+            "timestamp": "2026-01-01T00:00:00Z",
+            "commit_sha": None,
+            "scores": None,
+            "findings": [],
+        }
+    ]
+}
 
 
 @contextmanager
@@ -103,7 +114,8 @@ def _patched_agent(monkeypatch, responses, dispatch_result="tool output"):
         patch.object(core, "generate_report", return_value="# report") as generate,
         patch.object(core, "_write_report", return_value="report.md") as write,
         patch.object(core, "current_commit", return_value=None),
-        patch.object(core, "record_run", return_value=({}, _EMPTY_DIFF)),
+        patch.object(core, "record_run", return_value=(_STUB_STATE, _EMPTY_DIFF)),
+        patch.object(core, "write_exports", return_value=[]),
     ):
         yield call_llm, dispatch, generate, write
 
@@ -194,7 +206,8 @@ def test_tool_error_does_not_crash_run(monkeypatch) -> None:
         patch.object(core, "generate_report", return_value="# report"),
         patch.object(core, "_write_report", return_value="report.md"),
         patch.object(core, "current_commit", return_value=None),
-        patch.object(core, "record_run", return_value=({}, _EMPTY_DIFF)),
+        patch.object(core, "record_run", return_value=(_STUB_STATE, _EMPTY_DIFF)),
+        patch.object(core, "write_exports", return_value=[]),
     ):
         result = core.run_agent("/proj")
     dispatch.assert_called_once()
