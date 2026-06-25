@@ -32,7 +32,7 @@ def _resolve_ips(host: str) -> list[str]:
     return [info[4][0] for info in socket.getaddrinfo(host, None)]
 
 
-def _ssrf_reason(url: str) -> str | None:
+def ssrf_reason(url: str) -> str | None:
     """Refusal reason if the URL targets a non-public address, else None.
 
     Resolves the host and rejects loopback, private (RFC1918 / unique-local),
@@ -78,7 +78,7 @@ def test_api_endpoint(
 
     if not _network_enabled():
         return _fail("Network testing disabled. Set QABOT_ALLOW_NETWORK=1 to enable.")
-    reason = _ssrf_reason(url)
+    reason = ssrf_reason(url)
     if reason is not None:
         return _fail(reason)
     try:

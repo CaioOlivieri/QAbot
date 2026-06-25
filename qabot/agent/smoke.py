@@ -18,10 +18,12 @@ import os
 import time
 from dataclasses import dataclass, field
 
+from qabot import notify
 from qabot.agent.exports import write_exports
 from qabot.agent.report import (
     DEFAULT_THRESHOLDS,
     compute_scores,
+    count_new_criticals,
     evaluate_gate,
     generate_report,
 )
@@ -143,4 +145,15 @@ def run_smoke(project_path: str, source_dir: str | None = None) -> SmokeResult:
         DEFAULT_THRESHOLDS,
     )
     print(summarize_diff(diff))
+    notify.send(
+        notify.Summary(
+            project=project_path,
+            verdict=verdict,
+            reasons=reasons,
+            quality=scores["quality"],
+            previous_quality=previous_quality,
+            new_criticals=count_new_criticals(diff),
+            coverage=scores["coverage"],
+        )
+    )
     return SmokeResult(verdict, reasons, report_md, coverage)
