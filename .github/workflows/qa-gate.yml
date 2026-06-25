@@ -1,0 +1,84 @@
+name: QA Gate
+
+# QAbot dogfooding itself as a QA gate (distinct from ci.yml, which checks the
+# code's own format/lint/tests). Two tiers, one workflow:
+#   - pull_request -> smoke: deterministic AST + existing suite + gate, no LLM,
+#     no secret (so it also runs on fork PRs); fails the check on gate FAIL.
+#   - schedule    -> regression: full LLM generate + run; updates the trend.
+
+on:
+  pull_request:
+  schedule:
+    - cron: "0 3 * * *" # nightly, 03:00 UTC
+  workflow_dispatch: # manual "Run workflow" button — runs the regression on demand
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.14"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --extra dev
+
+      - name: QA smoke gate
+        # Exits non-zero on gate FAIL -> fails this required check.
+        run: uv run --no-sync qabot . --tier smoke --source qabot
+
+      - name: Upload QA report and exports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-report
+          path: reports/
+
+  regression:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # write the refreshed defect trend back to the branch
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.14"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --extra dev
+
+      - name: QA regression (full LLM run)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          QABOT_MODEL: gemini-2.5-flash
+        run: uv run --no-sync qabot . --tier regression
+
+      - name: Persist defect trend
+        run: |
+          # Keep only the refreshed ledger; drop generated tests and other churn.
+          cp reports/qabot_state.json /tmp/qabot_state.json
+          git checkout -- .
+          git clean -fd
+          mkdir -p reports
+          cp /tmp/qabot_state.json reports/qabot_state.json
+          if git diff --quiet -- reports/qabot_state.json; then
+            echo "No trend change."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add reports/qabot_state.json
+          git commit -m "chore(qa): update defect trend [skip ci]"
+          git push

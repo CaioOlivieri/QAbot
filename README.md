@@ -78,8 +78,39 @@ cp .env.example .env.keys  # then add your GEMINI_API_KEY
 ## Usage
 
 ```bash
-python -m qabot <project_path>
+python -m qabot <project_path>                       # full run (regression tier)
+python -m qabot <project_path> --tier smoke          # deterministic gate, no LLM
+python -m qabot <project_path> --tier smoke --source <pkg>   # bound the AST scan
 ```
+
+| Tier | LLM | What it does | Exit code |
+| --- | --- | --- | --- |
+| `regression` (default) | yes | Full ReAct run: generates and runs tests, detects semantic bugs, updates the persisted defect trend. | `0` |
+| `smoke` | no | Static AST scan + the project's existing test suite + ledger diff, run through the same PASS/FAIL gate. | `0` on PASS, `1` on FAIL |
+
+The **gate** fails when coverage drops to/below 80% or the run introduces a new critical defect versus the persisted ledger (`reports/qabot_state.json`). Thresholds: coverage > 80%, 0 new criticals.
+
+---
+
+## CI/CD integration
+
+QAbot ships a ready-to-use GitHub Actions workflow ([`.github/workflows/qa-gate.yml`](.github/workflows/qa-gate.yml)) — one workflow, two triggers:
+
+- **`pull_request` → smoke gate.** Runs `qabot . --tier smoke` on every PR. It is deterministic and **needs no API key**, so it also runs on pull requests from forks (GitHub withholds repository secrets from forked-PR workflows). A FAIL exits non-zero and **blocks the check**; the report and machine-readable exports (`qa.sarif`, `qa-results.xml`, `coverage.xml`) are uploaded as a build artifact.
+- **`schedule` (nightly) → regression.** Runs the full LLM agent, then commits the refreshed defect trend (`reports/qabot_state.json`) back to the branch with a `[skip ci]` message. Only the ledger is persisted — generated test files are discarded. The same regression can be triggered on demand from the **Actions → QA Gate → Run workflow** button (`workflow_dispatch`) — handy for verifying the `GEMINI_API_KEY` secret without waiting for the nightly run.
+
+### Setup
+
+1. **Add the workflow** — it is already at `.github/workflows/qa-gate.yml`. Adapt `--source <pkg>` to your package name (it bounds the AST scan to first-party code).
+2. **Add the `GEMINI_API_KEY` secret** (for the scheduled regression only) under *Settings → Secrets and variables → Actions → New repository secret*. The smoke gate does **not** use it.
+3. **Make the gate a required check** — *Settings → Branches → Branch protection rules → Require status checks to pass* → select **QA Gate / smoke**. Now a PR that drops coverage or introduces a critical defect cannot be merged.
+
+### Notes
+
+- The trend is established by the first scheduled regression (or a manual `qabot . --tier regression`). Until then the smoke gate still enforces coverage and catches newly added criticals.
+- The scheduled job pushes the trend to the default branch; allow GitHub Actions to push (or exempt the bot from branch protection) for the commit to land.
+- Override the smoke test command with `QABOT_SMOKE_CMD` (e.g. `QABOT_SMOKE_CMD="pytest -x tests/unit"`); the parsed coverage relies on a `--cov` term report, which `pyproject.toml`'s `addopts` provides by default.
+- Pick the regression model with `QABOT_MODEL` (default `gemini-2.5-flash-lite`).
 
 ---
 
@@ -87,11 +118,15 @@ python -m qabot <project_path>
 
 ```
 qabot/
-├── __main__.py        # CLI entrypoint
+├── __main__.py        # CLI entrypoint (--tier regression|smoke)
+├── state.py           # persistent defect ledger + run-over-run diff
 ├── agent/
-│   ├── core.py        # ReAct loop
+│   ├── core.py        # ReAct loop (regression tier)
+│   ├── smoke.py       # deterministic, LLM-free CI gate (smoke tier)
 │   ├── prompts.py     # QA specialist system prompt
-│   └── report.py      # markdown report generation
+│   ├── report.py      # markdown report + PASS/FAIL gate
+│   ├── reconcile.py   # production reconciliation / escape rate (DRE)
+│   └── exports.py     # SARIF / JUnit / coverage exports
 └── tools/
     ├── api.py          # API endpoint detection and testing
     ├── analyzer.py     # static AST bug scanner
