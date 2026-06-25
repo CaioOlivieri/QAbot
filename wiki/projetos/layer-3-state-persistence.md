@@ -66,3 +66,13 @@ ledger da 3a.
 ## 3c — reconciliação prod-vs-QA (aberta, #32)
 Critical defect escape rate (DRE) via issues do GitHub — a métrica-título da vaga,
 também sobre o ledger da 3a.
+
+## Security hardening (issue #39)
+
+Documented the trust boundary and all runtime controls in [THREAT_MODEL.md](../../THREAT_MODEL.md).
+
+Hardening set:
+- #36 — read sandbox (`_contain_in_root` / `_resolve_read_path`)
+- #37 — SSRF defence / opt-in network (`_ssrf_reason` + `QABOT_ALLOW_NETWORK`)
+- #38 — command timeout (`DEFAULT_COMMAND_TIMEOUT = 120 s`)
+- #39 — this documentation

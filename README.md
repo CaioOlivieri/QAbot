@@ -134,6 +134,12 @@ ruff check .
 
 ---
 
+## Security
+
+QAbot treats the target project as **untrusted** — it reads files, writes test files, and executes shell commands inside a sandboxed environment. File access is confined to the project root, writes are restricted to test files, outbound network requests are opt-in (`QABOT_ALLOW_NETWORK=1`, disabled by default), and all shell commands have a 120-second timeout. Always run QAbot in an isolated CI runner or ephemeral container with no production credentials. For full details, see [THREAT_MODEL.md](THREAT_MODEL.md).
+
+---
+
 ## License
 
 MIT
