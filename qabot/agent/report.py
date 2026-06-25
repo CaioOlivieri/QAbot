@@ -189,7 +189,7 @@ def _trend(current: float, previous: float | None) -> str:
     return "▬ no change vs last run"
 
 
-def _count_new_criticals(diff: dict[str, object]) -> int:
+def count_new_criticals(diff: dict[str, object]) -> int:
     """Critical defects that appeared this run (new + regressed)."""
     appeared = list(diff.get("new", [])) + list(diff.get("regressed", []))
     return sum(1 for f in appeared if f.get("severity") == "critical")
@@ -209,7 +209,7 @@ def evaluate_gate(
         reasons.append(
             f"coverage {coverage_score:.1f}% ≤ {thresholds['min_coverage']:.0f}%"
         )
-    new_criticals = _count_new_criticals(diff)
+    new_criticals = count_new_criticals(diff)
     if new_criticals > thresholds["max_new_criticals"]:
         reasons.append(f"{new_criticals} new critical defect(s)")
     verdict = "FAIL" if reasons else "PASS"
@@ -230,7 +230,7 @@ def _section_scorecard(
         "",
         f"**Gate: {verdict}** — coverage {scores['coverage']:.1f}% {cov_cmp} "
         f"{thresholds['min_coverage']:.0f}% · "
-        f"{_count_new_criticals(diff)} new critical defect(s)",
+        f"{count_new_criticals(diff)} new critical defect(s)",
     ]
     if reasons:
         lines.append("")
