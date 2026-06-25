@@ -154,14 +154,28 @@ def _ensure_dict(data: str | dict[str, object]) -> dict[str, object]:
     return data if isinstance(data, dict) else json.loads(data)
 
 
-def _resolve_write_path(path: str, project_path: str) -> str | None:
+def _contain_in_root(path: str, project_path: str) -> str | None:
+    """Absolute `path` if it resolves inside project_path, else None.
+
+    Shared trust boundary for read and write tools: blocks absolute paths and
+    `../` traversal that would escape the target project.
+    """
     root = os.path.abspath(project_path)
     candidate = path if os.path.isabs(path) else os.path.join(root, path)
     target = os.path.abspath(candidate)
     within_root = target == root or target.startswith(root + os.sep)
-    if within_root and _TEST_FILE.match(os.path.basename(target)):
+    return target if within_root else None
+
+
+def _resolve_write_path(path: str, project_path: str) -> str | None:
+    target = _contain_in_root(path, project_path)
+    if target is not None and _TEST_FILE.match(os.path.basename(target)):
         return target
     return None
+
+
+def _resolve_read_path(path: str, project_path: str) -> str | None:
+    return _contain_in_root(path, project_path)
 
 
 def _dispatch(
@@ -170,7 +184,10 @@ def _dispatch(
     if action == "list_files":
         return str(list_files(action_input))
     if action == "read_file":
-        return read_file(action_input)
+        target = _resolve_read_path(str(action_input), project_path)
+        if target is None:
+            return "Refused: read_file only reads files inside the project."
+        return read_file(target)
     if action == "write_file":
         params = _ensure_dict(action_input)
         target = _resolve_write_path(str(params["path"]), project_path)
