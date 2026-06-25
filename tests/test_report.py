@@ -1,6 +1,6 @@
 import re
 
-from qabot.agent.report import generate_report
+from qabot.agent.report import compute_scores, generate_report
 
 
 def _bug(status: str, severity: str = "critical") -> dict[str, object]:
@@ -102,3 +102,115 @@ def test_api_result_rows_render_pass_and_fail() -> None:
     report = generate_report("/p", {}, {}, [], [], results, [])
     assert "✓ passed" in report
     assert "✗ failed (error)" in report
+
+
+def _run_meta() -> dict[str, object]:
+    return {
+        "run_id": "r2",
+        "timestamp": "2026-06-25T00:00:00Z",
+        "commit_sha": "abcdef1234567",
+        "thresholds": {"min_coverage": 80.0, "max_new_criticals": 0},
+    }
+
+
+def _diff(new=None, coverage_after=95.0) -> dict[str, object]:
+    return {
+        "new": new or [],
+        "regressed": [],
+        "resolved": [],
+        "coverage": {
+            "before": 80.0,
+            "after": coverage_after,
+            "delta": coverage_after - 80.0,
+        },
+    }
+
+
+def test_scorecard_gate_pass_with_upward_trend() -> None:
+    report = generate_report(
+        "/p",
+        {},
+        {"m.py": 90.0},
+        [],
+        [],
+        [],
+        [],
+        diff=_diff(),
+        run_meta=_run_meta(),
+        previous_quality=50.0,
+    )
+    assert "Gate: PASS" in report
+    assert "▲" in report
+    assert "## Changes Since Last Run" in report
+    assert "Run r2" in report
+    assert "commit abcdef1" in report
+
+
+def test_scorecard_gate_fails_on_new_critical() -> None:
+    crit = {"file": "m.py", "line": 1, "severity": "critical", "category": "x"}
+    report = generate_report(
+        "/p",
+        {},
+        {"m.py": 95.0},
+        [],
+        [],
+        [],
+        [],
+        diff=_diff(new=[crit]),
+        run_meta=_run_meta(),
+        previous_quality=90.0,
+    )
+    assert "Gate: FAIL" in report
+    assert "1 new critical defect(s)" in report
+    assert "| new | m.py | 1 | critical | x |" in report
+
+
+def test_scorecard_gate_fails_on_low_coverage_first_run() -> None:
+    report = generate_report(
+        "/p",
+        {},
+        {"m.py": 50.0},
+        [],
+        [],
+        [],
+        [],
+        diff=_diff(coverage_after=50.0),
+        run_meta=_run_meta(),
+        previous_quality=None,
+    )
+    assert "Gate: FAIL" in report
+    assert "(first run)" in report
+
+
+def test_compute_scores_has_four_keys() -> None:
+    scores = compute_scores({"m.py": 100.0}, [], [], [], [])
+    assert set(scores) == {"quality", "coverage", "bug", "api"}
+
+
+def test_scorecard_trend_down_and_flat() -> None:
+    down = generate_report(
+        "/p",
+        {},
+        {"m.py": 50.0},
+        [],
+        [],
+        [],
+        [],
+        diff=_diff(coverage_after=50.0),
+        run_meta=_run_meta(),
+        previous_quality=100.0,
+    )
+    assert "▼" in down
+    flat = generate_report(
+        "/p",
+        {},
+        {"m.py": 90.0},
+        [],
+        [],
+        [],
+        [],
+        diff=_diff(),
+        run_meta=_run_meta(),
+        previous_quality=96.0,
+    )
+    assert "▬" in flat

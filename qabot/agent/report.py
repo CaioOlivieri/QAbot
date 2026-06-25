@@ -160,6 +160,123 @@ def _compute_score(
     return quality_score, coverage_score, bug_score, api_score
 
 
+# Gate thresholds: the pass/fail decision the gig is hired to make.
+DEFAULT_THRESHOLDS: dict[str, float] = {"min_coverage": 80.0, "max_new_criticals": 0}
+
+
+def compute_scores(
+    coverage_after: dict[str, float],
+    ast_bugs: list[dict[str, object]],
+    dynamic_bugs: list[dict[str, object]],
+    api_results: list[dict[str, object]],
+    suspected_bugs: list[dict[str, object]],
+) -> dict[str, float]:
+    """Public view of the four scores, keyed for persistence and trend tracking."""
+    quality, coverage, bug, api = _compute_score(
+        coverage_after, ast_bugs, dynamic_bugs, api_results, suspected_bugs
+    )
+    return {"quality": quality, "coverage": coverage, "bug": bug, "api": api}
+
+
+def _trend(current: float, previous: float | None) -> str:
+    if previous is None:
+        return "(first run)"
+    delta = current - previous
+    if delta > 0.05:
+        return f"▲ +{delta:.1f} vs last run"
+    if delta < -0.05:
+        return f"▼ {delta:.1f} vs last run"
+    return "▬ no change vs last run"
+
+
+def _count_new_criticals(diff: dict[str, object]) -> int:
+    """Critical defects that appeared this run (new + regressed)."""
+    appeared = list(diff.get("new", [])) + list(diff.get("regressed", []))
+    return sum(1 for f in appeared if f.get("severity") == "critical")
+
+
+def _gate(
+    coverage_score: float, diff: dict[str, object], thresholds: dict[str, float]
+) -> tuple[str, list[str]]:
+    reasons: list[str] = []
+    if not coverage_score > thresholds["min_coverage"]:
+        reasons.append(
+            f"coverage {coverage_score:.1f}% ≤ {thresholds['min_coverage']:.0f}%"
+        )
+    new_criticals = _count_new_criticals(diff)
+    if new_criticals > thresholds["max_new_criticals"]:
+        reasons.append(f"{new_criticals} new critical defect(s)")
+    verdict = "FAIL" if reasons else "PASS"
+    return verdict, reasons
+
+
+def _section_scorecard(
+    scores: dict[str, float],
+    diff: dict[str, object],
+    previous_quality: float | None,
+    thresholds: dict[str, float],
+) -> str:
+    verdict, reasons = _gate(scores["coverage"], diff, thresholds)
+    cov_cmp = ">" if scores["coverage"] > thresholds["min_coverage"] else "≤"
+    lines = [
+        f"**Quality Score: {scores['quality']:.1f} / 100** "
+        f"{_trend(scores['quality'], previous_quality)}",
+        "",
+        f"**Gate: {verdict}** — coverage {scores['coverage']:.1f}% {cov_cmp} "
+        f"{thresholds['min_coverage']:.0f}% · "
+        f"{_count_new_criticals(diff)} new critical defect(s)",
+    ]
+    if reasons:
+        lines.append("")
+        lines.append("FAIL reasons: " + "; ".join(reasons))
+    lines += [
+        "",
+        f"Coverage {scores['coverage']:.1f}% · Bugs {scores['bug']:.1f} · "
+        f"API {scores['api']:.1f}%",
+    ]
+    return "\n".join(lines)
+
+
+def _section_metadata(run_meta: dict[str, object]) -> str:
+    sha = run_meta.get("commit_sha")
+    sha_text = str(sha)[:7] if sha else "n/a"
+    thresholds = run_meta.get("thresholds", DEFAULT_THRESHOLDS)
+    assert isinstance(thresholds, dict)
+    return (
+        f"_Run {run_meta.get('run_id', '?')} · {run_meta.get('timestamp', '?')} · "
+        f"commit {sha_text} · thresholds: coverage > "
+        f"{thresholds['min_coverage']:.0f}%, "
+        f"{thresholds['max_new_criticals']:.0f} new criticals_"
+    )
+
+
+def _section_changes(diff: dict[str, object]) -> str:
+    coverage = diff["coverage"]
+    assert isinstance(coverage, dict)
+    new = list(diff["new"])
+    regressed = list(diff["regressed"])
+    resolved = list(diff["resolved"])
+    lines = [
+        "## Changes Since Last Run",
+        "",
+        f"New: {len(new)} · Regressed: {len(regressed)} · "
+        f"Resolved: {len(resolved)} · Coverage Δ {_fmt_delta(coverage['delta'])}",
+    ]
+    appeared = [("new", f) for f in new] + [("regressed", f) for f in regressed]
+    if appeared:
+        lines += [
+            "",
+            "| Status | File | Line | Severity | Category |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+        for status, f in appeared:
+            lines.append(
+                f"| {status} | {f['file']} | {f['line']} | "
+                f"{f['severity']} | {f['category']} |"
+            )
+    return "\n".join(lines)
+
+
 def generate_report(
     project_path: str,
     coverage_before: dict[str, float],
@@ -168,21 +285,36 @@ def generate_report(
     dynamic_bugs: list[dict[str, object]],
     api_results: list[dict[str, object]],
     suspected_bugs: list[dict[str, object]],
+    *,
+    diff: dict[str, object] | None = None,
+    run_meta: dict[str, object] | None = None,
+    previous_quality: float | None = None,
+    thresholds: dict[str, float] | None = None,
 ) -> str:
-    quality_score, coverage_score, bug_score, api_score = _compute_score(
-        coverage_after,
-        ast_bugs,
-        dynamic_bugs,
-        api_results,
-        suspected_bugs,
+    scores = compute_scores(
+        coverage_after, ast_bugs, dynamic_bugs, api_results, suspected_bugs
     )
-    parts: list[str] = [
-        f"# QAbot Report — {project_path}",
-        "",
-        f"**Quality Score: {quality_score:.1f} / 100**",
-        "",
-        f"Coverage {coverage_score:.1f}% · Bugs {bug_score:.1f} · API {api_score:.1f}%",
-        "",
+    header: list[str] = [f"# QAbot Report — {project_path}", ""]
+    if diff is not None and run_meta is not None:
+        header += [
+            _section_scorecard(
+                scores, diff, previous_quality, thresholds or DEFAULT_THRESHOLDS
+            ),
+            "",
+            _section_metadata(run_meta),
+            "",
+            _section_changes(diff),
+            "",
+        ]
+    else:
+        header += [
+            f"**Quality Score: {scores['quality']:.1f} / 100**",
+            "",
+            f"Coverage {scores['coverage']:.1f}% · Bugs {scores['bug']:.1f} · "
+            f"API {scores['api']:.1f}%",
+            "",
+        ]
+    body: list[str] = [
         _section_coverage(coverage_before, coverage_after),
         "",
         _section_ast_bugs(ast_bugs),
@@ -195,4 +327,4 @@ def generate_report(
         "",
         _section_suspected(suspected_bugs),
     ]
-    return "\n".join(parts)
+    return "\n".join(header + body)

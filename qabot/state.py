@@ -179,6 +179,7 @@ def record_run(
     suspected_bugs: list[dict[str, object]],
     coverage: dict[str, float],
     commit_sha: str | None = None,
+    scores: dict[str, float] | None = None,
 ) -> tuple[dict[str, object], dict[str, object]]:
     """Append this run to the ledger, persist it, and return ``(state, diff)``.
 
@@ -213,6 +214,7 @@ def record_run(
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "commit_sha": commit_sha,
             "coverage": coverage,
+            "scores": scores,
             "findings": current,
         }
     )
