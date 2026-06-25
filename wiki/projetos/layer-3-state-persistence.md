@@ -56,12 +56,19 @@ Comparado contra a execução anterior **e** o histórico completo:
 - `coverage`  — média antes/depois + delta.
 
 `summarize_diff` imprime uma linha no fim do run. Funções de diff/normalização são
-puras (sem I/O), testadas em `tests/test_state.py`. O **report** ainda não consome
-o diff — isso é a 3b (#31).
+puras (sem I/O), testadas em `tests/test_state.py`. O **report** consome o diff
+desde a 3b (#31).
 
-## 3b — report profissional (aberta, #31)
-Scorecard, tendência, gate PASS/FAIL e exports SARIF/JUnit/coverage, consumindo o
-ledger da 3a.
+## 3b — report profissional (entregue, #31)
+`report.py` consome o diff do ledger: scorecard com **score + seta de tendência**
+(vs o `quality` persistido no run anterior), **gate PASS/FAIL** (coverage > 80%,
+0 novos críticos) com motivos, seção **"Changes Since Last Run"** e metadados do run
+(run_id/timestamp/commit/thresholds). Exports machine-readable em
+`qabot/agent/exports.py`, gravados ao lado do `qa_report.md`: `qa.sarif` (SARIF
+2.1.0, achados estáticos → annotations do GitHub), `qa-results.xml` (JUnit: gate +
+defeitos) e `coverage.xml` (Cobertura, resumo por módulo). O `run_agent` registra o
+run **antes** de gerar o report; o `record_run` persiste os `scores` por run para a
+tendência.
 
 ## 3c — reconciliação prod-vs-QA (aberta, #32)
 Critical defect escape rate (DRE) via issues do GitHub — a métrica-título da vaga,
