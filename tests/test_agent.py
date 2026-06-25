@@ -116,6 +116,7 @@ def _patched_agent(monkeypatch, responses, dispatch_result="tool output"):
         patch.object(core, "current_commit", return_value=None),
         patch.object(core, "record_run", return_value=(_STUB_STATE, _EMPTY_DIFF)),
         patch.object(core, "write_exports", return_value=[]),
+        patch.object(core, "fetch_production_bugs", return_value=None),
     ):
         yield call_llm, dispatch, generate, write
 
@@ -208,6 +209,7 @@ def test_tool_error_does_not_crash_run(monkeypatch) -> None:
         patch.object(core, "current_commit", return_value=None),
         patch.object(core, "record_run", return_value=(_STUB_STATE, _EMPTY_DIFF)),
         patch.object(core, "write_exports", return_value=[]),
+        patch.object(core, "fetch_production_bugs", return_value=None),
     ):
         result = core.run_agent("/proj")
     dispatch.assert_called_once()
@@ -310,6 +312,37 @@ def test_call_llm_defaults_model_when_env_absent(monkeypatch) -> None:
     core._call_llm(client, [{"role": "user", "content": "hi"}])
     kwargs = client.models.generate_content.call_args.kwargs
     assert kwargs["model"] == "gemini-2.5-flash-lite"
+
+
+def test_ledger_critical_summary_dedupes_and_collects_files() -> None:
+    runs = [
+        {
+            "findings": [
+                {"file": "pkg/ops.py", "severity": "critical", "fingerprint": "fp1"},
+                {"file": "util.py", "severity": "warning", "fingerprint": "fp2"},
+            ]
+        },
+        {
+            "findings": [
+                {"file": "ops.py", "severity": "critical", "fingerprint": "fp1"}
+            ]
+        },
+    ]
+    count, files = core._ledger_critical_summary(runs)
+    assert count == 1  # fp1 counted once across runs
+    assert files == {"ops.py", "util.py"}
+
+
+def test_run_agent_computes_reconciliation_when_configured(monkeypatch) -> None:
+    from qabot.agent.reconcile import ProductionBug
+
+    bug = ProductionBug(1, "critical", ("m.py",), "2026-01-01T00:00:00Z")
+    with _patched_agent(monkeypatch, [_FINAL]) as (_c, _d, generate, _w):
+        with patch.object(core, "fetch_production_bugs", return_value=[bug]):
+            core.run_agent("/proj")
+    reconciliation = generate.call_args.kwargs["reconciliation"]
+    assert reconciliation is not None
+    assert reconciliation["escape"].escaped == 1
 
 
 def test_final_answer_terminates_loop(monkeypatch) -> None:

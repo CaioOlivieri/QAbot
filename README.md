@@ -134,6 +134,49 @@ ruff check .
 
 ---
 
+## Production reconciliation (DRE)
+
+QAbot can measure the **critical defect escape rate** and its inverse, **Defect
+Removal Efficiency (DRE)** — of the critical bugs your project hit, how many
+escaped to production versus were caught by QA. It is **opt-in** and only **reads**
+your issue tracker; left unset, the report simply omits the metric.
+
+To enable it on **your** project:
+
+1. **Point it at the repo** whose GitHub issues track production bugs:
+   ```bash
+   export QABOT_PROD_REPO=your-org/your-repo
+   ```
+2. **(Optional) labels.** By default QAbot reads issues labeled `bug` or
+   `production` and treats `critical`/`blocker`/`p0`/`sev1` as critical:
+   ```bash
+   export QABOT_PROD_LABELS=bug,production
+   export QABOT_CRITICAL_LABELS=critical,blocker,p0,sev1
+   ```
+3. **(Optional) token.** Public repos work with no token (GitHub allows ~60
+   requests/hour). For private repos or a higher limit, create a **fine-grained
+   Personal Access Token** with **Issues: Read-only** on that repo:
+   ```bash
+   export GITHUB_TOKEN=your_read_only_token
+   ```
+   The token is read from the environment only — never written, logged, or
+   committed — and can be revoked any time in GitHub settings.
+4. **(Optional) window.** DRE is measured over a trailing window (default **90
+   days**, per Capers Jones; ISBSG uses 30):
+   ```bash
+   export QABOT_DRE_WINDOW_DAYS=90
+   ```
+
+Run QAbot as usual — the report gains a **Critical Defect Escape Rate (DRE)**
+section. QAbot only reads issues from `api.github.com`; it never writes to your
+repo or account.
+
+> DRE = caught / (caught + escaped); a production defect is an escape by definition
+> (Capers Jones, *The Economics of Software Quality*, 2011). The metric is scoped to
+> the defects QAbot could reconcile and states its confounders in the report.
+
+---
+
 ## Security
 
 QAbot treats the target project as **untrusted** — it reads files, writes test files, and executes shell commands inside a sandboxed environment. File access is confined to the project root, writes are restricted to test files, outbound network requests are opt-in (`QABOT_ALLOW_NETWORK=1`, disabled by default), and all shell commands have a 120-second timeout. Always run QAbot in an isolated CI runner or ephemeral container with no production credentials. For full details, see [THREAT_MODEL.md](THREAT_MODEL.md).
