@@ -20,7 +20,7 @@ The agent must never let untrusted input escape the project root, reach private 
 |--------|---------|---------------|
 | **Read exfiltration** — agent reads files outside the project | `read_file` is confined to the project root via `_contain_in_root` / `_resolve_read_path`; absolute paths and `../` traversal are refused. | `qabot/agent/core.py` |
 | **Write outside scope** — agent writes non-test files or escapes the project | `_resolve_write_path` only allows test files (`test_*.py`, `*_test.py`, `conftest.py`) inside the project root. | `qabot/agent/core.py` |
-| **SSRF / egress exfiltration** — agent makes outbound requests to private or internal hosts | `ssrf_reason` resolves the host and refuses loopback, private (RFC1918), link-local (`169.254.0.0/16`, `fe80::/10`), reserved, multicast, and unspecified addresses. Outbound testing is opt-in via `QABOT_ALLOW_NETWORK` (off by default); the same `ssrf_reason` check is reused on the operator-configured Slack webhook URL before posting notifications. | `qabot/tools/api.py` |
+| **SSRF / egress exfiltration** — agent makes outbound requests to private or internal hosts | `_check_and_pin` resolves the host **once** and refuses loopback, private (RFC1918), link-local (`169.254.0.0/16`, `fe80::/10`), reserved, multicast, and unspecified addresses. The validated IP is then **pinned**: the request connects to that exact address while the original hostname is preserved for the `Host` header and TLS SNI/certificate verification — so DNS rebinding cannot swap in a private address between check and connect. Outbound testing is opt-in via `QABOT_ALLOW_NETWORK` (off by default); the same `ssrf_reason` check is reused on the operator-configured Slack webhook URL before posting notifications. | `qabot/tools/api.py` |
 | **Hang / DoS** — a malicious project causes the agent to hang forever | `run_command` has a 120 s `DEFAULT_COMMAND_TIMEOUT` (server-side, not model-controllable; `TimeoutExpired` returns exit code 124). | `qabot/tools/runner.py` |
 | **Runaway loop** — agent keeps iterating without converging | `AgentState.max_iterations = 25` caps the ReAct loop. | `qabot/agent/core.py` |
 | **Secret hygiene** — API keys leak via tracked files | `.env.keys` is never tracked; `.gitignore` blocks `.env*`, `*.key`, `*.pem`, and `reports/`. | `.gitignore` |
@@ -28,8 +28,7 @@ The agent must never let untrusted input escape the project root, reach private 
 ## Residual risks
 
 1. **`run_command` can execute ANY command by design** — the primary control is *operational*, not code. The timeout limits damage but does not prevent it.
-2. **DNS rebinding** — the SSRF check resolves the host once, then `httpx` resolves again independently. A rebinding host could return a public IP at check time and a private IP at connection time. Pinning the resolved IP (passing it to `httpx` as the address) would fully close this gap.
-3. **Prompt injection** can still steer the agent's reasoning within the allowed controls. A sufficiently crafted payload in source code may cause the agent to call allowed tools in unintended ways.
+2. **Prompt injection** can still steer the agent's reasoning within the allowed controls. A sufficiently crafted payload in source code may cause the agent to call allowed tools in unintended ways.
 
 ## Operational requirements
 
