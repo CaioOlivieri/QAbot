@@ -389,7 +389,23 @@ def test_findings_accumulate_across_iterations(monkeypatch) -> None:
     assert coverage_before == {"qabot/core.py": 50.0}
 
 
+def test_max_iterations_from_env(monkeypatch) -> None:
+    monkeypatch.setenv("QABOT_MAX_ITERATIONS", "3")
+    assert core.AgentState(project_path="/p").max_iterations == 3
+
+
+def test_max_iterations_defaults_when_unset_or_invalid(monkeypatch) -> None:
+    monkeypatch.delenv("QABOT_MAX_ITERATIONS", raising=False)
+    assert core.AgentState(project_path="/p").max_iterations == 25
+    monkeypatch.setenv("QABOT_MAX_ITERATIONS", "not-a-number")
+    assert core.AgentState(project_path="/p").max_iterations == 25
+    monkeypatch.setenv("QABOT_MAX_ITERATIONS", "0")
+    assert core.AgentState(project_path="/p").max_iterations == 25
+
+
 def test_max_iterations_reached_still_writes_report(monkeypatch) -> None:
+    monkeypatch.delenv("QABOT_MAX_ITERATIONS", raising=False)
+
     def always_act(client, messages):
         return _ACTION
 
