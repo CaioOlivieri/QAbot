@@ -33,11 +33,31 @@ from qabot.tools.fs import list_files, read_file, write_file
 from qabot.tools.github import fetch_production_bugs
 from qabot.tools.runner import parse_coverage, parse_pytest_failures, run_command
 
+_DEFAULT_MAX_ITERATIONS = 25
+
+
+def _resolve_max_iterations() -> int:
+    """Cap on the ReAct loop, overridable via ``QABOT_MAX_ITERATIONS``.
+
+    The scheduled regression runs on the rate-limited Gemini free tier; a
+    smaller cap lets a 429-throttled run still finish (and refresh the trend)
+    inside the workflow's ``timeout-minutes`` ceiling. Falls back to the default
+    on an unset, non-integer, or non-positive value.
+    """
+    raw = os.environ.get("QABOT_MAX_ITERATIONS")
+    if raw is None:
+        return _DEFAULT_MAX_ITERATIONS
+    try:
+        value = int(raw)
+    except ValueError:
+        return _DEFAULT_MAX_ITERATIONS
+    return value if value > 0 else _DEFAULT_MAX_ITERATIONS
+
 
 @dataclass(frozen=True)
 class AgentState:
     project_path: str
-    max_iterations: int = 25
+    max_iterations: int = field(default_factory=_resolve_max_iterations)
 
 
 @dataclass
