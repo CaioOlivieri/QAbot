@@ -69,3 +69,60 @@ def test_follows_pagination(monkeypatch) -> None:
         bugs = github.fetch_production_bugs()
     assert [b.number for b in bugs] == [1, 2]
     assert get.call_count == 2
+
+
+def test_enriches_with_fix_commit_when_no_text_ref(monkeypatch) -> None:
+    monkeypatch.setenv("QABOT_PROD_REPO", "owner/repo")
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    issues = _resp([_issue(7, state="closed", labels=[{"name": "critical"}])])
+    timeline = _resp([{"event": "labeled"}, {"event": "closed", "commit_id": "sha1"}])
+    commit = _resp(
+        {"files": [{"filename": "qabot/agent/core.py"}, {"filename": "README.md"}]}
+    )
+    with patch(
+        "qabot.tools.github.httpx.get", side_effect=[issues, timeline, commit]
+    ) as get:
+        bugs = github.fetch_production_bugs()
+    assert bugs[0].fix_file_refs == ("core.py",)  # non-.py file filtered out
+    assert get.call_count == 3  # issues + timeline + commit
+
+
+def test_fix_lookup_graceful_when_no_closing_commit(monkeypatch) -> None:
+    monkeypatch.setenv("QABOT_PROD_REPO", "owner/repo")
+    issues = _resp([_issue(7, state="closed", labels=[{"name": "critical"}])])
+    timeline = _resp([{"event": "labeled"}])  # no closed-by-commit event
+    with patch("qabot.tools.github.httpx.get", side_effect=[issues, timeline]) as get:
+        bugs = github.fetch_production_bugs()
+    assert bugs[0].fix_file_refs == ()  # falls back, no crash
+    assert get.call_count == 2  # no commit fetch without a sha
+
+
+def test_fix_lookup_graceful_on_api_error(monkeypatch) -> None:
+    monkeypatch.setenv("QABOT_PROD_REPO", "owner/repo")
+    issues = _resp([_issue(7, state="closed", labels=[{"name": "critical"}])])
+    # The issues list returns, then the timeline call raises.
+    with patch(
+        "qabot.tools.github.httpx.get", side_effect=[issues, Exception("boom")]
+    ) as get:
+        bugs = github.fetch_production_bugs()
+    assert bugs[0].fix_file_refs == ()  # swallowed, fetch still succeeds
+    assert get.call_count == 2
+
+
+def test_no_fix_lookup_when_text_ref_present(monkeypatch) -> None:
+    monkeypatch.setenv("QABOT_PROD_REPO", "owner/repo")
+    issues = _resp(
+        [
+            _issue(
+                7,
+                state="closed",
+                body='File "ops.py", line 1',
+                labels=[{"name": "critical"}],
+            )
+        ]
+    )
+    with patch("qabot.tools.github.httpx.get", side_effect=[issues]) as get:
+        bugs = github.fetch_production_bugs()
+    assert bugs[0].file_refs == ("ops.py",)
+    assert bugs[0].fix_file_refs == ()
+    assert get.call_count == 1  # text ref present → no extra API calls

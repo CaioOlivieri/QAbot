@@ -31,6 +31,10 @@ class ProductionBug:
     severity: str
     file_refs: tuple[str, ...]
     created_at: str  # ISO 8601
+    # Basenames of files changed by the commit that *fixed* this bug (resolved
+    # from the issue's "closed by" event). A second attribution signal, used
+    # when the issue text carries no stack trace; empty when none was resolved.
+    fix_file_refs: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -71,6 +75,43 @@ def count_critical(bugs: list[ProductionBug]) -> int:
     return sum(1 for bug in bugs if bug.severity == "critical")
 
 
+def qa_observation_start(runs: list[dict[str, object]]) -> str | None:
+    """Earliest run timestamp at which QA analyzed a known commit, or ``None``.
+
+    Temporal-anchoring reference: a production bug reported *before* QA ever ran
+    on a recorded commit was never QA's to catch, so counting it as an "escape"
+    overstates the rate. Returns ``None`` when no run carries a ``commit_sha``,
+    in which case anchoring is skipped (see :func:`catchable`).
+    """
+    observed = [
+        str(run["timestamp"])
+        for run in runs
+        if run.get("commit_sha") and run.get("timestamp")
+    ]
+    return min(observed) if observed else None
+
+
+def catchable(bugs: list[ProductionBug], anchor_iso: str | None) -> list[ProductionBug]:
+    """Bugs QA had a real chance to catch: reported at/after it began observing.
+
+    This is a deliberately lightweight, time-based proxy for *defect provenance*
+    — "did the defective code exist in a revision QA actually analyzed?". The
+    rigorous answer is commit-level provenance: identify the bug-introducing
+    commit and check it against the analyzed history. That is the **SZZ
+    algorithm** (Jacek Śliwerski, Thomas Zimmermann & Andreas Zeller, "When Do
+    Changes Induce Fixes?", MSR 2005), which blames the fixing commit's changed
+    lines to locate the change that introduced the defect. SZZ needs full git
+    history and line-level blame, so we approximate it here with the issue's
+    report time against the first observed run; the SZZ-based version is tracked
+    as a follow-up. When ``anchor_iso`` is ``None`` we cannot anchor and return
+    all bugs unchanged, so escapes are never silently dropped.
+    """
+    if anchor_iso is None:
+        return list(bugs)
+    cutoff = _parse_time(anchor_iso)
+    return [bug for bug in bugs if _parse_time(bug.created_at) >= cutoff]
+
+
 def escape_rate(caught: int, escaped: int) -> EscapeRate:
     """Escape rate (escaped / total) and DRE (caught / total), as percentages."""
     total = caught + escaped
@@ -84,9 +125,14 @@ def detection_breakdown(
 ) -> dict[str, list[ProductionBug]]:
     """Split production bugs by whether QAbot had flagged the referenced file.
 
+    A bug is attributed to a file via two signals: references parsed from the
+    issue text (stack traces) and, as a fallback, the files changed by its
+    fixing commit (``fix_file_refs``). The fix-commit signal rescues bugs that
+    have no stack trace from the ``unmatched`` bucket.
+
     - ``flagged``: QAbot flagged a referenced file (caught, but shipped anyway).
     - ``undetected``: a file was referenced but QAbot never flagged it.
-    - ``unmatched``: no code reference in the issue — cannot be attributed.
+    - ``unmatched``: no code reference at all — cannot be attributed.
     """
     result: dict[str, list[ProductionBug]] = {
         "flagged": [],
@@ -94,9 +140,10 @@ def detection_breakdown(
         "unmatched": [],
     }
     for bug in bugs:
-        if not bug.file_refs:
+        candidates = bug.file_refs + bug.fix_file_refs
+        if not candidates:
             result["unmatched"].append(bug)
-        elif any(ref in flagged_files for ref in bug.file_refs):
+        elif any(ref in flagged_files for ref in candidates):
             result["flagged"].append(bug)
         else:
             result["undetected"].append(bug)
