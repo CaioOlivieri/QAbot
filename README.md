@@ -120,6 +120,8 @@ Egress for notifications is operator-configured (your webhook, `api.github.com`)
 - The scheduled job pushes the trend to the default branch; allow GitHub Actions to push (or exempt the bot from branch protection) for the commit to land.
 - Override the smoke test command with `QABOT_SMOKE_CMD` (e.g. `QABOT_SMOKE_CMD="pytest -x tests/unit"`); the parsed coverage relies on a `--cov` term report, which `pyproject.toml`'s `addopts` provides by default.
 - Pick the regression model with `QABOT_MODEL` (default `gemini-2.5-flash-lite`).
+- Cap the agent's reasoning loop with `QABOT_MAX_ITERATIONS` (default `25`). The scheduled regression sets a smaller value so a rate-limited free-tier run still finishes within the job timeout.
+- The scheduled regression is **best-effort**: it depends on the Gemini free tier, which can be briefly overloaded (`503`) or rate-limited (`429`). It is bounded by `timeout-minutes` and `QABOT_MAX_ITERATIONS` and is allowed to fail without failing the workflow — the blocking quality gate is the LLM-free `smoke` job on pull requests.
 
 ---
 
