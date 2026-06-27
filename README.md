@@ -1,10 +1,24 @@
 # QAbot
 
-[![CI](https://github.com/CaioOlivieri/QAbot/actions/workflows/ci.yml/badge.svg)](https://github.com/CaioOlivieri/QAbot/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/CaioOlivieri/QAbot/graph/badge.svg)](https://codecov.io/gh/CaioOlivieri/QAbot)
+[![CI](https://github.com/CaioOlivieri/QAbot/actions/workflows/ci.yml/badge.svg)](https://github.com/CaioOlivieri/QAbot/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/CaioOlivieri/QAbot/graph/badge.svg)](https://codecov.io/gh/CaioOlivieri/QAbot) [![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-blue.svg)](pyproject.toml) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 AI agent for automated QA on Python projects.
 
 Given a local repository, qabot analyzes test coverage, generates missing tests, detects critical bugs, and produces a quality report — all autonomously.
+
+## Contents
+
+- [What it does](#what-it-does)
+- [Demo](#demo)
+- [Installation](#installation)
+- [Usage](#usage)
+- [CI/CD integration](#cicd-integration)
+- [Architecture](#architecture)
+- [Success criteria](#success-criteria)
+- [Development](#development)
+- [Production reconciliation (DRE)](#production-reconciliation-dre)
+- [Security](#security)
+- [License](#license)
 
 ---
 
@@ -43,6 +57,36 @@ Action: run_command
 Thought: Coverage report obtained. Identifying modules below 80%.
 Action: parse_coverage
 ...
+```
+
+It then writes a markdown report — the actual deliverable. Excerpt from QAbot's own CI run (`qabot . --tier smoke`):
+
+```markdown
+# QAbot Report — .
+
+**Quality Score: 92.8 / 100** (first run)
+
+**Gate: PASS** — coverage 100.0% > 80% · 0 new critical defect(s)
+
+_Run smoke-1 · commit 9f9974b · thresholds: coverage > 80%, 0 new criticals_
+
+## Changes Since Last Run
+
+New: 6 · Regressed: 0 · Resolved: 0 · Coverage Δ +100.0%
+
+| Status | File | Line | Severity | Category |
+| --- | --- | --- | --- | --- |
+| new | qabot/agent/core.py | 394 | warning | broad_except |
+| new | qabot/tools/api.py | 94 | warning | broad_except |
+
+## Coverage
+
+| Module | Before | After | Δ |
+| --- | --- | --- | --- |
+| qabot/tools/api.py | 100.0% | 100.0% | — |
+| qabot/tools/github.py | 100.0% | 100.0% | — |
+
+(… full coverage table, static/dynamic/semantic bug sections, and API results follow)
 ```
 
 ---
@@ -140,9 +184,10 @@ qabot/
 │   ├── reconcile.py   # production reconciliation / escape rate (DRE)
 │   └── exports.py     # SARIF / JUnit / coverage exports
 └── tools/
-    ├── api.py          # API endpoint detection and testing
+    ├── api.py          # API endpoint detection + SSRF-guarded testing
     ├── analyzer.py     # static AST bug scanner
     ├── fs.py           # list_files, read_file, write_file
+    ├── github.py       # production-bug GitHub adapter for DRE (opt-in)
     └── runner.py       # run_command, parse_coverage, parse_pytest_failures
 ```
 
@@ -247,4 +292,4 @@ QAbot treats the target project as **untrusted** — it reads files, writes test
 
 ## License
 
-MIT
+[MIT](LICENSE) © Caio Olivieri
