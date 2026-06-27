@@ -3,7 +3,12 @@ import subprocess
 from unittest.mock import MagicMock, mock_open, patch
 
 from qabot.tools.analyzer import analyze_file_ast, analyze_project_ast
-from qabot.tools.api import _resolve_ips, detect_api_endpoints
+from qabot.tools.api import (
+    _pinned_request,
+    _resolve_ips,
+    detect_api_endpoints,
+    ssrf_reason,
+)
 from qabot.tools.api import test_api_endpoint as call_endpoint
 from qabot.tools.fs import list_files, read_file, write_file
 from qabot.tools.runner import parse_coverage, parse_pytest_failures, run_command
@@ -201,11 +206,56 @@ def test_test_api_endpoint_passed(monkeypatch) -> None:
     mock_resp.status_code = 200
     with (
         patch("qabot.tools.api._resolve_ips", return_value=["93.184.216.34"]),
-        patch("qabot.tools.api.httpx.request", return_value=mock_resp),
+        patch("qabot.tools.api._pinned_request", return_value=mock_resp),
     ):
         result = call_endpoint("https://x.com")
     assert result["passed"] is True
     assert result["error"] == ""
+
+
+def test_test_api_endpoint_connects_to_validated_ip(monkeypatch) -> None:
+    monkeypatch.setenv("QABOT_ALLOW_NETWORK", "1")
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    with (
+        patch("qabot.tools.api._resolve_ips", return_value=["93.184.216.34"]),
+        patch("qabot.tools.api._pinned_request", return_value=mock_resp) as pinned,
+    ):
+        call_endpoint("https://example.com/health")
+    method, target, host_header, sni_hostname, _timeout = pinned.call_args.args
+    assert method == "GET"
+    assert target == "https://93.184.216.34/health"  # connects to the validated IP
+    assert host_header == "example.com"  # original host kept for routing
+    assert sni_hostname == "example.com"  # and for TLS SNI + cert verification
+
+
+def test_test_api_endpoint_pin_keeps_port(monkeypatch) -> None:
+    monkeypatch.setenv("QABOT_ALLOW_NETWORK", "1")
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    with (
+        patch("qabot.tools.api._resolve_ips", return_value=["93.184.216.34"]),
+        patch("qabot.tools.api._pinned_request", return_value=mock_resp) as pinned,
+    ):
+        call_endpoint("https://example.com:8443/api")
+    _method, target, host_header, _sni, _timeout = pinned.call_args.args
+    assert target == "https://93.184.216.34:8443/api"
+    assert host_header == "example.com:8443"
+
+
+def test_test_api_endpoint_resolves_host_only_once(monkeypatch) -> None:
+    monkeypatch.setenv("QABOT_ALLOW_NETWORK", "1")
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    with (
+        patch(
+            "qabot.tools.api._resolve_ips", return_value=["93.184.216.34"]
+        ) as resolve,
+        patch("qabot.tools.api._pinned_request", return_value=mock_resp),
+    ):
+        call_endpoint("https://example.com")
+    # A single resolution → no second DNS lookup a rebind could exploit.
+    assert resolve.call_count == 1
 
 
 def test_test_api_endpoint_wrong_status(monkeypatch) -> None:
@@ -214,7 +264,7 @@ def test_test_api_endpoint_wrong_status(monkeypatch) -> None:
     mock_resp.status_code = 404
     with (
         patch("qabot.tools.api._resolve_ips", return_value=["93.184.216.34"]),
-        patch("qabot.tools.api.httpx.request", return_value=mock_resp),
+        patch("qabot.tools.api._pinned_request", return_value=mock_resp),
     ):
         result = call_endpoint("https://x.com", expected_status=200)
     assert result["passed"] is False
@@ -225,7 +275,7 @@ def test_test_api_endpoint_network_error(monkeypatch) -> None:
     monkeypatch.setenv("QABOT_ALLOW_NETWORK", "1")
     with (
         patch("qabot.tools.api._resolve_ips", return_value=["93.184.216.34"]),
-        patch("qabot.tools.api.httpx.request", side_effect=Exception("timeout")),
+        patch("qabot.tools.api._pinned_request", side_effect=Exception("timeout")),
     ):
         result = call_endpoint("https://x.com")
     assert result["passed"] is False
@@ -235,7 +285,7 @@ def test_test_api_endpoint_network_error(monkeypatch) -> None:
 
 def test_test_api_endpoint_disabled_by_default(monkeypatch) -> None:
     monkeypatch.delenv("QABOT_ALLOW_NETWORK", raising=False)
-    with patch("qabot.tools.api.httpx.request") as request:
+    with patch("qabot.tools.api._pinned_request") as request:
         result = call_endpoint("https://x.com")
     request.assert_not_called()
     assert result["passed"] is False
@@ -246,7 +296,7 @@ def test_test_api_endpoint_refuses_private_ip(monkeypatch) -> None:
     monkeypatch.setenv("QABOT_ALLOW_NETWORK", "1")
     with (
         patch("qabot.tools.api._resolve_ips", return_value=["10.0.0.5"]),
-        patch("qabot.tools.api.httpx.request") as request,
+        patch("qabot.tools.api._pinned_request") as request,
     ):
         result = call_endpoint("https://internal.example")
     request.assert_not_called()
@@ -258,7 +308,7 @@ def test_test_api_endpoint_refuses_link_local_metadata(monkeypatch) -> None:
     monkeypatch.setenv("QABOT_ALLOW_NETWORK", "1")
     with (
         patch("qabot.tools.api._resolve_ips", return_value=["169.254.169.254"]),
-        patch("qabot.tools.api.httpx.request") as request,
+        patch("qabot.tools.api._pinned_request") as request,
     ):
         result = call_endpoint("https://metadata.example")
     request.assert_not_called()
@@ -267,7 +317,7 @@ def test_test_api_endpoint_refuses_link_local_metadata(monkeypatch) -> None:
 
 def test_test_api_endpoint_refuses_url_without_host(monkeypatch) -> None:
     monkeypatch.setenv("QABOT_ALLOW_NETWORK", "1")
-    with patch("qabot.tools.api.httpx.request") as request:
+    with patch("qabot.tools.api._pinned_request") as request:
         result = call_endpoint("not-a-url")
     request.assert_not_called()
     assert "no host" in result["error"]
@@ -277,7 +327,7 @@ def test_test_api_endpoint_refuses_unresolvable_host(monkeypatch) -> None:
     monkeypatch.setenv("QABOT_ALLOW_NETWORK", "1")
     with (
         patch("qabot.tools.api._resolve_ips", side_effect=socket.gaierror),
-        patch("qabot.tools.api.httpx.request") as request,
+        patch("qabot.tools.api._pinned_request") as request,
     ):
         result = call_endpoint("https://nope.invalid")
     request.assert_not_called()
@@ -288,6 +338,81 @@ def test_resolve_ips_extracts_addresses() -> None:
     getaddrinfo_result = [(2, 1, 6, "", ("93.184.216.34", 0))]
     with patch("qabot.tools.api.socket.getaddrinfo", return_value=getaddrinfo_result):
         assert _resolve_ips("example.com") == ["93.184.216.34"]
+
+
+def test_ssrf_reason_allows_public_host() -> None:
+    with patch("qabot.tools.api._resolve_ips", return_value=["93.184.216.34"]):
+        assert ssrf_reason("https://example.com") is None
+
+
+def test_ssrf_reason_refuses_private_host() -> None:
+    with patch("qabot.tools.api._resolve_ips", return_value=["10.0.0.5"]):
+        assert "non-public" in ssrf_reason("https://internal.example")
+
+
+def test_ssrf_reason_refuses_url_without_host() -> None:
+    assert "no host" in ssrf_reason("not-a-url")
+
+
+def test_test_api_endpoint_refuses_empty_resolution(monkeypatch) -> None:
+    monkeypatch.setenv("QABOT_ALLOW_NETWORK", "1")
+    with (
+        patch("qabot.tools.api._resolve_ips", return_value=[]),
+        patch("qabot.tools.api._pinned_request") as pinned,
+    ):
+        result = call_endpoint("https://example.com")
+    pinned.assert_not_called()
+    assert "cannot resolve" in result["error"]
+
+
+def test_test_api_endpoint_pins_ipv6_literal(monkeypatch) -> None:
+    monkeypatch.setenv("QABOT_ALLOW_NETWORK", "1")
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    ipv6 = "2606:2800:220:1:248:1893:25c8:1946"
+    with (
+        patch("qabot.tools.api._resolve_ips", return_value=[ipv6]),
+        patch("qabot.tools.api._pinned_request", return_value=mock_resp) as pinned,
+    ):
+        call_endpoint(f"https://[{ipv6}]:8443/p")
+    _method, target, host_header, _sni, _timeout = pinned.call_args.args
+    assert target == f"https://[{ipv6}]:8443/p"  # IPv6 bracketed in the URL
+    assert host_header == f"[{ipv6}]:8443"  # and in the Host header
+
+
+def test_pinned_request_sets_host_header_and_sni_extension() -> None:
+    captured: dict[str, object] = {}
+
+    class FakeClient:
+        def __init__(self, timeout):
+            captured["timeout"] = timeout
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def build_request(self, method, target, headers):
+            captured["target"] = target
+            captured["headers"] = headers
+            request = MagicMock()
+            request.extensions = {}
+            captured["request"] = request
+            return request
+
+        def send(self, request):
+            captured["sent"] = request
+            return MagicMock(status_code=200)
+
+    with patch("qabot.tools.api.httpx.Client", FakeClient):
+        resp = _pinned_request(
+            "GET", "https://1.2.3.4/p", "example.com", "example.com", 10
+        )
+    assert captured["headers"] == {"Host": "example.com"}
+    assert captured["request"].extensions["sni_hostname"] == "example.com"
+    assert captured["sent"] is captured["request"]
+    assert resp.status_code == 200
 
 
 # ─── analyzer ────────────────────────────────────────────────────────────────
