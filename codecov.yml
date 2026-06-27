@@ -1,0 +1,20 @@
+# Codecov configuration.
+#
+# Coverage on Codecov is *informational* here: the authoritative quality gate
+# (coverage > 80%, 0 new criticals vs. the persisted ledger) is enforced by
+# .github/workflows/qa-gate.yml. Codecov's status checks must therefore never
+# block a PR — they only surface the trend and annotate the diff.
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%        # ignore sub-1% drops
+        informational: true  # report only, never fail the PR
+    patch:
+      default:
+        informational: true
+
+comment:
+  layout: "reach, diff, flags, files"
+  require_changes: true       # comment only when coverage actually changes
