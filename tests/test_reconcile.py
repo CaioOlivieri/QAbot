@@ -64,3 +64,44 @@ def test_detection_breakdown_three_buckets() -> None:
     assert [b.number for b in result["flagged"]] == [1]
     assert [b.number for b in result["undetected"]] == [2]
     assert [b.number for b in result["unmatched"]] == [3]
+
+
+def test_detection_breakdown_uses_fix_commit_files_when_no_text_ref() -> None:
+    # No stack-trace ref, but the fixing commit touched a flagged file → flagged.
+    rescued = ProductionBug(1, "critical", (), "2026-06-20T00:00:00Z", ("ops.py",))
+    # Fix touched a file QA never flagged → undetected (still out of unmatched).
+    elsewhere = ProductionBug(2, "critical", (), "2026-06-20T00:00:00Z", ("new.py",))
+    # No signal at all → unmatched.
+    blank = ProductionBug(3, "critical", (), "2026-06-20T00:00:00Z", ())
+    result = reconcile.detection_breakdown(
+        [rescued, elsewhere, blank], flagged_files={"ops.py"}
+    )
+    assert [b.number for b in result["flagged"]] == [1]
+    assert [b.number for b in result["undetected"]] == [2]
+    assert [b.number for b in result["unmatched"]] == [3]
+
+
+def test_qa_observation_start_is_earliest_run_with_a_commit() -> None:
+    runs = [
+        {"timestamp": "2026-06-10T00:00:00Z", "commit_sha": None},
+        {"timestamp": "2026-06-12T00:00:00Z", "commit_sha": "abc"},
+        {"timestamp": "2026-06-15T00:00:00Z", "commit_sha": "def"},
+    ]
+    assert reconcile.qa_observation_start(runs) == "2026-06-12T00:00:00Z"
+
+
+def test_qa_observation_start_none_when_no_commit_recorded() -> None:
+    runs = [{"timestamp": "2026-06-10T00:00:00Z", "commit_sha": None}]
+    assert reconcile.qa_observation_start(runs) is None
+
+
+def test_catchable_excludes_bugs_reported_before_qa_observed() -> None:
+    before = _bug(number=1, created_at="2026-06-01T00:00:00Z")
+    after = _bug(number=2, created_at="2026-06-20T00:00:00Z")
+    kept = reconcile.catchable([before, after], anchor_iso="2026-06-12T00:00:00Z")
+    assert [b.number for b in kept] == [2]
+
+
+def test_catchable_keeps_all_when_anchor_is_none() -> None:
+    bugs = [_bug(number=1, created_at="2020-01-01T00:00:00Z")]
+    assert reconcile.catchable(bugs, anchor_iso=None) == bugs

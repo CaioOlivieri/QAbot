@@ -13,6 +13,7 @@ only and is never logged or written.
 
 import os
 import re
+from dataclasses import replace
 
 import httpx
 
@@ -63,14 +64,58 @@ def _next_link(link_header: str) -> str | None:
     return match.group(1) if match else None
 
 
+def _fix_commit_files(
+    repo: str, number: int, headers: dict[str, str], timeout: int
+) -> tuple[str, ...]:
+    """Files changed by the commit that closed issue ``number`` (``.py`` basenames).
+
+    Resolves the issue's "closed by" commit from the timeline API, then reads
+    that commit's changed files. Best-effort: any failure (no closing commit, an
+    API error) yields an empty tuple, so reconciliation falls back to text refs
+    and a single noisy issue never aborts the whole fetch.
+    """
+    try:
+        timeline = httpx.get(
+            f"{_API}/repos/{repo}/issues/{number}/timeline",
+            headers=headers,
+            params={"per_page": 100},
+            timeout=timeout,
+        )
+        timeline.raise_for_status()
+        sha: str | None = None
+        for event in timeline.json():
+            if event.get("event") == "closed" and event.get("commit_id"):
+                sha = str(event["commit_id"])  # last closing commit wins
+        if sha is None:
+            return ()
+        commit = httpx.get(
+            f"{_API}/repos/{repo}/commits/{sha}",
+            headers=headers,
+            timeout=timeout,
+        )
+        commit.raise_for_status()
+        files = commit.json().get("files", [])
+        refs: set[str] = set()
+        for entry in files if isinstance(files, list) else []:
+            refs.update(extract_file_refs(str(entry.get("filename", ""))))
+        return tuple(sorted(refs))
+    except Exception as exc:
+        print(f"Fix-commit lookup skipped for #{number}: {type(exc).__name__}")
+        return ()
+
+
 def fetch_production_bugs(
-    timeout: int = 10, max_pages: int = 10
+    timeout: int = 10, max_pages: int = 10, max_fix_lookups: int = 20
 ) -> list[ProductionBug] | None:
     """Fetch labeled issues as ``ProductionBug``s.
 
     Returns ``None`` when no source is configured (opt-in no-op); an empty list on a
     configured-but-failed/empty fetch, so the caller can tell 'no source' apart from
     'source returned nothing'.
+
+    For critical, closed bugs that carry no stack-trace reference, resolves the
+    fixing commit's changed files as a second attribution signal (capped at
+    ``max_fix_lookups`` to bound the extra API calls).
     """
     config = _config()
     if config is None:
@@ -87,16 +132,29 @@ def fetch_production_bugs(
     }
     critical = _critical_labels()
     bugs: list[ProductionBug] = []
+    fix_lookups = 0
     try:
         for _ in range(max_pages):
             response = httpx.get(url, headers=headers, params=params, timeout=timeout)
             response.raise_for_status()
             issues = response.json()
-            bugs.extend(
-                _to_bug(issue, critical)
-                for issue in issues
-                if "pull_request" not in issue
-            )
+            for issue in issues:
+                if "pull_request" in issue:
+                    continue
+                bug = _to_bug(issue, critical)
+                if (
+                    fix_lookups < max_fix_lookups
+                    and bug.severity == "critical"
+                    and not bug.file_refs
+                    and issue.get("state") == "closed"
+                ):
+                    fix_lookups += 1
+                    fix_refs = _fix_commit_files(
+                        config["repo"], bug.number, headers, timeout
+                    )
+                    if fix_refs:
+                        bug = replace(bug, fix_file_refs=fix_refs)
+                bugs.append(bug)
             url = _next_link(response.headers.get("Link", ""))
             if not url:
                 break

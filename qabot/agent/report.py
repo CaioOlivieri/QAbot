@@ -313,8 +313,10 @@ def _section_reconciliation(reconciliation: dict[str, object]) -> str:
         "",
         "_DRE per Capers Jones, The Economics of Software Quality (2011): "
         "caught / (caught + escaped); a production defect is an escape by definition. "
-        "Trailing window; confounders (bad-fix injection, inherited defects) not "
-        "modeled._",
+        "Escapes are temporally anchored to runs where QA analyzed a recorded commit "
+        "— a lightweight proxy for the bug-introducing-commit provenance of the SZZ "
+        "algorithm (Śliwerski, Zimmermann & Zeller, MSR 2005). Trailing window; "
+        "confounders (bad-fix injection, inherited defects) not modeled._",
     ]
     return "\n".join(lines)
 

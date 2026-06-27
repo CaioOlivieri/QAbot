@@ -15,8 +15,10 @@ from qabot.agent.exports import write_exports
 from qabot.agent.prompts import SYSTEM_PROMPT
 from qabot.agent.reconcile import (
     DEFAULT_DRE_WINDOW_DAYS,
+    catchable,
     detection_breakdown,
     escape_rate,
+    qa_observation_start,
     within_window,
 )
 from qabot.agent.report import (
@@ -476,10 +478,13 @@ def run_agent(project_path: str) -> str:
             production_bugs, window_days, str(current_run["timestamp"])
         )
         critical_bugs = [b for b in windowed if b.severity == "critical"]
+        # Temporal anchoring: only count criticals QA had a chance to catch
+        # (reported at/after QA first analyzed a recorded commit).
+        catchable_criticals = catchable(critical_bugs, qa_observation_start(runs))
         caught_criticals, flagged_files = _ledger_critical_summary(runs)
         reconciliation = {
-            "escape": escape_rate(caught_criticals, len(critical_bugs)),
-            "breakdown": detection_breakdown(critical_bugs, flagged_files),
+            "escape": escape_rate(caught_criticals, len(catchable_criticals)),
+            "breakdown": detection_breakdown(catchable_criticals, flagged_files),
             "window_days": window_days,
         }
 
