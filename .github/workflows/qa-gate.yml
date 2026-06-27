@@ -53,8 +53,15 @@ jobs:
   regression:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    # Hard ceiling: the full LLM agent loop can crawl under free-tier rate limits.
-    # A bounded best-effort nightly is better than one that thrashes for ages.
+    # Best-effort nightly. The full LLM loop depends on the Gemini free tier, which
+    # intermittently returns 503 (overloaded) or 429 (rate-limited) — the provider's
+    # problem, not a code regression. The blocking quality gate is the LLM-free
+    # `smoke` job on PRs (plus ci.yml), so this job is allowed to fail without
+    # failing the workflow, and is bounded on two axes:
+    #   - timeout-minutes: a hard wall-clock ceiling;
+    #   - QABOT_MAX_ITERATIONS: a tighter ReAct cap so a throttled run still finishes
+    #     (and refreshes the trend) inside that ceiling.
+    continue-on-error: true
     timeout-minutes: 15
     permissions:
       contents: write # write the refreshed defect trend back to the branch
@@ -74,6 +81,7 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           QABOT_MODEL: gemini-2.5-flash
+          QABOT_MAX_ITERATIONS: "12" # lighter loop fits the free-tier timeout
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} # no-op if unset
         run: uv run --no-sync qabot . --tier regression
 
