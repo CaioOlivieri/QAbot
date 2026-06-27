@@ -82,6 +82,23 @@ env, host fixo `api.github.com`) ingere issues `bug`/`production` como
   não-detectado / unmatched). KPI no report ligado ao gate, com saúde vs o mínimo
   profissional de 95% (Jones). Fonte e confounders documentados.
 
+### Sinais mais fortes (issue #46, implementado)
+
+Dois sinais deferidos do #32 para evitar scope creep, agora entregues:
+- **enriquecimento por fix-commit** — para um bug crítico fechado sem ref de texto, o
+  adapter resolve o commit que fechou a issue (evento "closed by" na timeline) e usa os
+  arquivos `.py` que ele alterou como segundo sinal de atribuição (`ProductionBug.fix_file_refs`),
+  com fallback para o texto. Reduz o balde `unmatched`. Chamadas extras opt-in, graciosas
+  e limitadas (`max_fix_lookups`).
+- **âncora temporal** — `qa_observation_start` + `catchable` só contam um escape se o bug
+  foi reportado depois de QA ter analisado um commit registrado (`commit_sha` no ledger),
+  refletindo defeitos que QA teve chance real de pegar.
+
+A âncora é um proxy leve de *proveniência de defeito*. A versão rigorosa identifica o
+commit introdutor do bug via `git blame` nas linhas do fix — o **algoritmo SZZ** (Jacek
+Śliwerski, Thomas Zimmermann & Andreas Zeller, *"When Do Changes Induce Fixes?"*, MSR
+2005), deixado como follow-up.
+
 ## Security hardening (issue #39)
 
 Documented the trust boundary and all runtime controls in [THREAT_MODEL.md](../../THREAT_MODEL.md).

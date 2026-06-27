@@ -222,6 +222,21 @@ repo or account.
 > (Capers Jones, *The Economics of Software Quality*, 2011). The metric is scoped to
 > the defects QAbot could reconcile and states its confounders in the report.
 
+**How escapes are attributed and anchored.** Each escaped bug is attributed to a file
+by two signals: references parsed from the issue text (stack traces) and, as a
+fallback, the files changed by the bug's **fixing commit** (resolved from the issue's
+"closed by" event). The second signal rescues bug reports that carry no stack trace.
+Escapes are also **temporally anchored** — a production bug only counts against QA if
+it was reported after QA first analyzed a recorded commit, so the rate reflects
+defects QA actually had a chance to catch.
+
+This time-based anchor is a deliberately lightweight proxy for *defect provenance*:
+the rigorous question of whether the defective code existed in a revision QA analyzed.
+The principled answer is to identify the bug-introducing commit by blaming the fixing
+commit's changed lines — the **SZZ algorithm**, introduced by Jacek Śliwerski, Thomas
+Zimmermann and Andreas Zeller in *"When Do Changes Induce Fixes?"* (MSR 2005). A
+SZZ-based provenance version is tracked as a follow-up.
+
 ---
 
 ## Security
