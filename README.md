@@ -89,6 +89,23 @@ New: 6 · Regressed: 0 · Resolved: 0 · Coverage Δ +100.0%
 (… full coverage table, static/dynamic/semantic bug sections, and API results follow)
 ```
 
+With **production reconciliation** configured (the regression tier — see
+[Production reconciliation (DRE)](#production-reconciliation-dre)), the report gains
+the **prod-vs-QA tracking** section, produced by the same report generator:
+
+```markdown
+## Critical Defect Escape Rate (DRE)
+
+**Critical escape rate: 6.7%** · DRE 93.3% (✗ below the 95% professional minimum) — caught 14 / escaped 1, last 90 days
+
+Escaped-bug detection: 1 flagged-but-shipped · 0 undetected · 0 unmatched
+```
+
+> Example output — the figures depend on your repo's QA and production history. This
+> is the signal behind "100% of critical bugs caught before production": it makes the
+> critical **escape rate** measurable (prod-vs-QA), anchors each escape to the
+> bug-introducing commit (SZZ), and the gate blocks new criticals before they ship.
+
 ---
 
 ## Installation
