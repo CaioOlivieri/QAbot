@@ -2,11 +2,13 @@
 
 - **SARIF** (`qa.sarif`): static (AST) findings → GitHub code-scanning annotations.
 - **JUnit XML** (`qa-results.xml`): the gate + defects as test cases, for CI dashboards.
-- **Cobertura** (`coverage.xml`): per-module coverage summary.
+- **Cobertura** (`coverage.xml`): real line-level data when available, otherwise a
+  per-module coverage summary.
 
-Serializers are pure (return strings); ``write_exports`` does the I/O. Coverage is
-a *summary* (per-module line-rate from percentages) — QAbot only has the parsed
-percentages, not line-level hit data.
+Serializers are pure (return strings); ``write_exports`` does the I/O. When a real
+line-level ``coverage.xml`` (produced by ``coverage.py --cov-report=xml``) is
+supplied, it is written verbatim; otherwise ``to_coverage_xml`` synthesizes a
+summary from the parsed per-module percentages.
 """
 
 import json
@@ -58,6 +60,15 @@ def to_sarif(ast_bugs: list[dict[str, object]]) -> str:
         ],
     }
     return json.dumps(doc, indent=2)
+
+
+def coverage_xml_has_lines(xml_text: str) -> bool:
+    """Return *True* if *xml_text* is a Cobertura XML containing ≥1 ``<line>``."""
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return False
+    return next(root.iter("line"), None) is not None
 
 
 def _xml_document(element: ET.Element) -> str:
@@ -138,15 +149,25 @@ def write_exports(
     dynamic_bugs: list[dict[str, object]],
     suspected_bugs: list[dict[str, object]],
     thresholds: dict[str, float],
+    coverage_xml: str | None = None,
 ) -> list[str]:
-    """Write the three exports into ``reports_dir``; return the paths written."""
+    """Write the three exports into ``reports_dir``; return the paths written.
+
+    When *coverage_xml* is provided and contains real line-level data
+    (``<line>`` elements), it is written verbatim as ``coverage.xml``; otherwise
+    the per-module summary from :func:`to_coverage_xml` is used as a fallback.
+    """
     os.makedirs(reports_dir, exist_ok=True)
+    if coverage_xml is not None and coverage_xml_has_lines(coverage_xml):
+        cov_content = coverage_xml
+    else:
+        cov_content = to_coverage_xml(coverage)
     files = {
         "qa.sarif": to_sarif(ast_bugs),
         "qa-results.xml": to_junit(
             coverage, ast_bugs, dynamic_bugs, suspected_bugs, thresholds
         ),
-        "coverage.xml": to_coverage_xml(coverage),
+        "coverage.xml": cov_content,
     }
     written: list[str] = []
     for name, content in files.items():

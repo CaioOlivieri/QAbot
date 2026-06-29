@@ -1,17 +1,19 @@
 import ast
+import contextlib
 import json
 import os
 import re
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
 from qabot import notify
-from qabot.agent.exports import write_exports
+from qabot.agent.exports import coverage_xml_has_lines, write_exports
 from qabot.agent.prompts import SYSTEM_PROMPT
 from qabot.agent.reconcile import (
     DEFAULT_DRE_WINDOW_DAYS,
@@ -508,6 +510,11 @@ def run_agent(project_path: str) -> str:
     report_path = _write_report(project_path, report_md)
     print(f"Report saved to {report_path}")
 
+    real_xml: str | None = None
+    candidate = os.path.join(project_path, "coverage.xml")
+    with contextlib.suppress(OSError):
+        real_xml = Path(candidate).read_text()
+
     export_paths = write_exports(
         os.path.join(project_path, "reports"),
         coverage,
@@ -515,6 +522,9 @@ def run_agent(project_path: str) -> str:
         findings.dynamic_bugs,
         findings.suspected_bugs,
         DEFAULT_THRESHOLDS,
+        coverage_xml=real_xml
+        if real_xml and coverage_xml_has_lines(real_xml)
+        else None,
     )
     print(f"Exports: {', '.join(os.path.basename(p) for p in export_paths)}")
     print(summarize_diff(diff))
