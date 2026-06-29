@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import mock_open, patch
 
 import pytest
 
@@ -115,7 +115,7 @@ def _patched_agent(monkeypatch, responses, dispatch_result="tool output"):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     with (
         patch.object(core, "load_dotenv"),
-        patch.object(core, "genai"),
+        patch.object(core, "get_provider"),
         patch.object(core, "_call_llm", side_effect=responses) as call_llm,
         patch.object(core, "_dispatch", return_value=dispatch_result) as dispatch,
         patch.object(core, "generate_report", return_value="# report") as generate,
@@ -208,7 +208,7 @@ def test_tool_error_does_not_crash_run(monkeypatch) -> None:
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     with (
         patch.object(core, "load_dotenv"),
-        patch.object(core, "genai"),
+        patch.object(core, "get_provider"),
         patch.object(core, "_call_llm", side_effect=[_ACTION, _FINAL]),
         patch.object(core, "_dispatch", side_effect=RuntimeError("boom")) as dispatch,
         patch.object(core, "generate_report", return_value="# report"),
@@ -249,6 +249,21 @@ def test_accumulate_run_command_returns_new_last_output() -> None:
     findings = core.Findings()
     out = core._accumulate_findings("run_command", "", "pytest output", findings, "old")
     assert out == "pytest output"
+
+
+def test_call_llm_delegates_to_provider() -> None:
+    class _Provider:
+        def __init__(self) -> None:
+            self.seen: object = None
+
+        def complete(self, messages: list[dict[str, str]]) -> str:
+            self.seen = messages
+            return "ok"
+
+    provider = _Provider()
+    messages = [{"role": "user", "content": "hi"}]
+    assert core._call_llm(provider, messages) == "ok"
+    assert provider.seen == messages
 
 
 def _raise_then_return(errors: list[Exception], value: str):
@@ -312,24 +327,6 @@ def test_call_llm_with_retry_reraises_other_errors(monkeypatch) -> None:
     monkeypatch.setattr(core, "_call_llm", boom)
     with pytest.raises(ValueError):
         core._call_llm_with_retry(None, [])
-
-
-def test_call_llm_uses_model_from_env(monkeypatch) -> None:
-    monkeypatch.setenv("QABOT_MODEL", "gemini-2.5-flash")
-    client = MagicMock()
-    client.models.generate_content.return_value = MagicMock(text="{}")
-    core._call_llm(client, [{"role": "user", "content": "hi"}])
-    kwargs = client.models.generate_content.call_args.kwargs
-    assert kwargs["model"] == "gemini-2.5-flash"
-
-
-def test_call_llm_defaults_model_when_env_absent(monkeypatch) -> None:
-    monkeypatch.delenv("QABOT_MODEL", raising=False)
-    client = MagicMock()
-    client.models.generate_content.return_value = MagicMock(text="{}")
-    core._call_llm(client, [{"role": "user", "content": "hi"}])
-    kwargs = client.models.generate_content.call_args.kwargs
-    assert kwargs["model"] == "gemini-2.5-flash-lite"
 
 
 def test_ledger_critical_summary_dedupes_and_collects_files() -> None:
