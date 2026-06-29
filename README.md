@@ -96,7 +96,7 @@ the **prod-vs-QA tracking** section, produced by the same report generator:
 ```markdown
 ## Critical Defect Escape Rate (DRE)
 
-**Critical escape rate: 6.7%** · DRE 93.3% (✗ below the 95% professional minimum) — caught 14 / escaped 1, last 90 days
+**Critical escape rate: 4.0%** · DRE 96.0% (✓ meets the 95% professional minimum) — caught 24 / escaped 1, last 90 days
 
 Escaped-bug detection: 1 flagged-but-shipped · 0 undetected · 0 unmatched
 ```
