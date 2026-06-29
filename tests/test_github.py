@@ -84,6 +84,7 @@ def test_enriches_with_fix_commit_when_no_text_ref(monkeypatch) -> None:
     ) as get:
         bugs = github.fetch_production_bugs()
     assert bugs[0].fix_file_refs == ("core.py",)  # non-.py file filtered out
+    assert bugs[0].fix_commit_sha == "sha1"  # SZZ provenance entry point
     assert get.call_count == 3  # issues + timeline + commit
 
 
@@ -109,7 +110,9 @@ def test_fix_lookup_graceful_on_api_error(monkeypatch) -> None:
     assert get.call_count == 2
 
 
-def test_no_fix_lookup_when_text_ref_present(monkeypatch) -> None:
+def test_fix_lookup_runs_even_with_text_ref_for_szz_sha(monkeypatch) -> None:
+    # A stack trace already attributes the bug, but SZZ provenance still needs
+    # the fixing-commit sha, so the lookup runs for any critical closed bug.
     monkeypatch.setenv("QABOT_PROD_REPO", "owner/repo")
     issues = _resp(
         [
@@ -121,8 +124,12 @@ def test_no_fix_lookup_when_text_ref_present(monkeypatch) -> None:
             )
         ]
     )
-    with patch("qabot.tools.github.httpx.get", side_effect=[issues]) as get:
+    timeline = _resp([{"event": "closed", "commit_id": "sha9"}])
+    commit = _resp({"files": [{"filename": "ops.py"}]})
+    with patch(
+        "qabot.tools.github.httpx.get", side_effect=[issues, timeline, commit]
+    ) as get:
         bugs = github.fetch_production_bugs()
-    assert bugs[0].file_refs == ("ops.py",)
-    assert bugs[0].fix_file_refs == ()
-    assert get.call_count == 1  # text ref present → no extra API calls
+    assert bugs[0].file_refs == ("ops.py",)  # text ref preserved
+    assert bugs[0].fix_commit_sha == "sha9"  # sha captured for SZZ
+    assert get.call_count == 3
