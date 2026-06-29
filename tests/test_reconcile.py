@@ -105,3 +105,39 @@ def test_catchable_excludes_bugs_reported_before_qa_observed() -> None:
 def test_catchable_keeps_all_when_anchor_is_none() -> None:
     bugs = [_bug(number=1, created_at="2020-01-01T00:00:00Z")]
     assert reconcile.catchable(bugs, anchor_iso=None) == bugs
+
+
+def test_catchable_with_provenance_includes_reachable() -> None:
+    bugs = [_bug(number=1)]
+    out = reconcile.catchable_with_provenance(bugs, {1: True}, anchor_iso=None)
+    assert [b.number for b in out] == [1]
+
+
+def test_catchable_with_provenance_excludes_unreachable() -> None:
+    bugs = [_bug(number=1)]
+    assert reconcile.catchable_with_provenance(bugs, {1: False}, anchor_iso=None) == []
+
+
+def test_catchable_with_provenance_falls_back_to_time_anchor_when_absent() -> None:
+    early = _bug(number=1, created_at="2020-01-01T00:00:00Z")
+    late = _bug(number=2, created_at="2020-12-01T00:00:00Z")
+    # neither bug is in the provenance map → the #46 time-anchor decides
+    out = reconcile.catchable_with_provenance(
+        [early, late], {}, anchor_iso="2020-06-01T00:00:00Z"
+    )
+    assert [b.number for b in out] == [2]
+
+
+def test_catchable_with_provenance_absent_and_no_anchor_keeps_all() -> None:
+    bugs = [_bug(number=1), _bug(number=2)]
+    out = reconcile.catchable_with_provenance(bugs, {}, anchor_iso=None)
+    assert [b.number for b in out] == [1, 2]
+
+
+def test_catchable_with_provenance_mixes_szz_and_fallback() -> None:
+    szz = _bug(number=1, created_at="2020-01-01T00:00:00Z")  # SZZ says reachable
+    proxy = _bug(number=2, created_at="2020-01-01T00:00:00Z")  # absent + pre-anchor
+    out = reconcile.catchable_with_provenance(
+        [szz, proxy], {1: True}, anchor_iso="2020-06-01T00:00:00Z"
+    )
+    assert [b.number for b in out] == [1]
