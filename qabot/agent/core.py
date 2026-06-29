@@ -15,7 +15,7 @@ from qabot.agent.exports import coverage_xml_has_lines, write_exports
 from qabot.agent.llm import LLMProvider, get_provider
 from qabot.agent.reconcile import (
     DEFAULT_DRE_WINDOW_DAYS,
-    catchable,
+    catchable_with_provenance,
     detection_breakdown,
     escape_rate,
     qa_observation_start,
@@ -32,6 +32,7 @@ from qabot.state import current_commit, load_state, record_run, summarize_diff
 from qabot.tools.analyzer import analyze_project_ast
 from qabot.tools.api import detect_api_endpoints, test_api_endpoint
 from qabot.tools.fs import list_files, read_file, write_file
+from qabot.tools.git_blame import resolve_provenance
 from qabot.tools.github import fetch_production_bugs
 from qabot.tools.runner import parse_coverage, parse_pytest_failures, run_command
 
@@ -470,9 +471,15 @@ def run_agent(project_path: str) -> str:
             production_bugs, window_days, str(current_run["timestamp"])
         )
         critical_bugs = [b for b in windowed if b.severity == "critical"]
-        # Temporal anchoring: only count criticals QA had a chance to catch
-        # (reported at/after QA first analyzed a recorded commit).
-        catchable_criticals = catchable(critical_bugs, qa_observation_start(runs))
+        # Provenance anchoring: count a critical only if QA had a real chance to
+        # catch it. The rigorous signal is SZZ — its bug-introducing commit is
+        # reachable from a commit QA analyzed; where git can't resolve that, fall
+        # back to the #46 time-anchor (reported at/after QA's first observed run).
+        qa_shas = [str(run["commit_sha"]) for run in runs if run.get("commit_sha")]
+        provenance = resolve_provenance(project_path, critical_bugs, qa_shas)
+        catchable_criticals = catchable_with_provenance(
+            critical_bugs, provenance, qa_observation_start(runs)
+        )
         caught_criticals, flagged_files = _ledger_critical_summary(runs)
         reconciliation = {
             "escape": escape_rate(caught_criticals, len(catchable_criticals)),

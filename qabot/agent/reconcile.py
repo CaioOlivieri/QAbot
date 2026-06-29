@@ -35,6 +35,10 @@ class ProductionBug:
     # from the issue's "closed by" event). A second attribution signal, used
     # when the issue text carries no stack trace; empty when none was resolved.
     fix_file_refs: tuple[str, ...] = ()
+    # SHA of that fixing commit (same resolution). Empty when unresolved. It is
+    # the entry point for SZZ provenance: blame its changed lines to find the
+    # commit that introduced the defect (see ``catchable_with_provenance``).
+    fix_commit_sha: str = ""
 
 
 @dataclass(frozen=True)
@@ -101,15 +105,45 @@ def catchable(bugs: list[ProductionBug], anchor_iso: str | None) -> list[Product
     algorithm** (Jacek Śliwerski, Thomas Zimmermann & Andreas Zeller, "When Do
     Changes Induce Fixes?", MSR 2005), which blames the fixing commit's changed
     lines to locate the change that introduced the defect. SZZ needs full git
-    history and line-level blame, so we approximate it here with the issue's
-    report time against the first observed run; the SZZ-based version is tracked
-    as a follow-up. When ``anchor_iso`` is ``None`` we cannot anchor and return
-    all bugs unchanged, so escapes are never silently dropped.
+    history and line-level blame, so this function approximates it with the
+    issue's report time against the first observed run. The SZZ-based version is
+    implemented in :func:`catchable_with_provenance` (backed by
+    ``qabot.tools.git_blame``), which uses this time anchor as its graceful
+    fallback. When ``anchor_iso`` is ``None`` we cannot anchor and return all bugs
+    unchanged, so escapes are never silently dropped.
     """
     if anchor_iso is None:
         return list(bugs)
     cutoff = _parse_time(anchor_iso)
     return [bug for bug in bugs if _parse_time(bug.created_at) >= cutoff]
+
+
+def catchable_with_provenance(
+    bugs: list[ProductionBug],
+    provenance: dict[int, bool],
+    anchor_iso: str | None,
+) -> list[ProductionBug]:
+    """Bugs QA had a real chance to catch, preferring SZZ commit provenance.
+
+    ``provenance`` maps a bug's issue number to whether its bug-introducing
+    commit — located by blaming the fixing commit's changed lines, the **SZZ
+    algorithm** (Śliwerski, Zimmermann & Zeller, MSR 2005) — is reachable from a
+    commit QA analyzed (i.e. the defective code existed in a revision QA saw). A
+    bug present in the map is catchable iff its introducing commit is reachable;
+    a bug **absent** from the map (its provenance could not be resolved from git)
+    falls back to the lightweight time-anchor of :func:`catchable`. This makes the
+    rigorous commit-level signal the primary anchor and the report-time proxy the
+    graceful fallback, so escapes are never silently dropped.
+    """
+    cutoff = _parse_time(anchor_iso) if anchor_iso is not None else None
+    result: list[ProductionBug] = []
+    for bug in bugs:
+        if bug.number in provenance:
+            if provenance[bug.number]:
+                result.append(bug)
+        elif cutoff is None or _parse_time(bug.created_at) >= cutoff:
+            result.append(bug)
+    return result
 
 
 def escape_rate(caught: int, escaped: int) -> EscapeRate:

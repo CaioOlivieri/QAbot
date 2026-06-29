@@ -310,12 +310,16 @@ Escapes are also **temporally anchored** — a production bug only counts agains
 it was reported after QA first analyzed a recorded commit, so the rate reflects
 defects QA actually had a chance to catch.
 
-This time-based anchor is a deliberately lightweight proxy for *defect provenance*:
-the rigorous question of whether the defective code existed in a revision QA analyzed.
-The principled answer is to identify the bug-introducing commit by blaming the fixing
-commit's changed lines — the **SZZ algorithm**, introduced by Jacek Śliwerski, Thomas
-Zimmermann and Andreas Zeller in *"When Do Changes Induce Fixes?"* (MSR 2005). A
-SZZ-based provenance version is tracked as a follow-up.
+The time-based anchor is a lightweight proxy for the rigorous question of *defect
+provenance*: did the defective code exist in a revision QA analyzed? QAbot answers
+it directly with the **SZZ algorithm** (Jacek Śliwerski, Thomas Zimmermann and
+Andreas Zeller, *"When Do Changes Induce Fixes?"*, MSR 2005): it blames the fixing
+commit's changed lines to locate the **bug-introducing commit**, then counts the bug
+only when that commit is reachable from a commit QA analyzed. This is the primary
+anchor; the report-time proxy is the graceful fallback whenever git cannot resolve
+the provenance (a non-local fixing commit, no shared history), so escapes are never
+silently dropped. SZZ needs the target's local git history and is best-effort by
+design.
 
 ---
 
