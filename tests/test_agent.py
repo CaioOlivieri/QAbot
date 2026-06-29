@@ -281,6 +281,17 @@ def test_call_llm_with_retry_recovers_from_429(monkeypatch) -> None:
     assert core._call_llm_with_retry(None, []) == "ok"
 
 
+def test_call_llm_with_retry_429_resets_503_streak(monkeypatch) -> None:
+    monkeypatch.setattr(core.time, "sleep", lambda _s: None)
+    # Five 503s push the counter to the cap; the 429 must reset it so the
+    # trailing 503 is the start of a fresh streak instead of tripping the cap.
+    errors = [Exception("503 UNAVAILABLE")] * core._MAX_503_RETRIES
+    errors.append(Exception("429 RESOURCE_EXHAUSTED"))
+    errors.append(Exception("503 UNAVAILABLE"))
+    monkeypatch.setattr(core, "_call_llm", _raise_then_return(errors, "ok"))
+    assert core._call_llm_with_retry(None, []) == "ok"
+
+
 def test_call_llm_with_retry_gives_up_after_max_503(monkeypatch) -> None:
     monkeypatch.setattr(core.time, "sleep", lambda _s: None)
 

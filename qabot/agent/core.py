@@ -101,6 +101,10 @@ def _call_llm_with_retry(client: genai.Client, messages: list[dict[str, str]]) -
         except Exception as exc:
             exc_text = str(exc)
             if "429" in exc_text or "RESOURCE_EXHAUSTED" in exc_text:
+                # A 429 means the model IS responding (just throttled), so it
+                # ends any unavailability streak: reset so later 503s are only
+                # counted when they are truly consecutive.
+                unavailable_retries = 0
                 print("Rate limited (429). Sleeping 60s before retry...")
                 time.sleep(_RETRY_429_SLEEP)
             elif ("503" in exc_text or "UNAVAILABLE" in exc_text) and (
