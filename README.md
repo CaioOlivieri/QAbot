@@ -136,6 +136,41 @@ The **gate** fails when coverage drops to/below 80% or the run introduces a new 
 
 ---
 
+## Choosing a model / provider
+
+The full (regression) tier needs an LLM. QAbot runs against Gemini, any
+OpenAI-compatible endpoint, or Anthropic — selected with environment variables
+(put them in `.env.keys`, which is git-ignored; never commit a real key):
+
+| Variable | Purpose |
+| --- | --- |
+| `QABOT_PROVIDER` | `gemini` (default), `openai-compatible`, or `anthropic`. |
+| `QABOT_MODEL` | Model id (a sensible per-provider default is used if unset). |
+| `QABOT_API_KEY` | API key for the chosen provider. Gemini also accepts the legacy `GEMINI_API_KEY`; `openai-compatible` also accepts `OPENAI_API_KEY`; `anthropic` also accepts `ANTHROPIC_API_KEY`. |
+| `QABOT_BASE_URL` | Endpoint override for `openai-compatible` / `anthropic` (point it at OpenRouter, a local server, etc.). |
+| `QABOT_JSON_MODE` | Set to `0` for OpenAI-compatible endpoints that reject `response_format` (e.g. some local servers). |
+
+```bash
+# 1) Gemini (default) — nothing to configure beyond the key
+GEMINI_API_KEY=<your-key>
+
+# 2) OpenAI-compatible — OpenAI, OpenRouter, Together, Groq, or a local Ollama/vLLM
+QABOT_PROVIDER=openai-compatible
+QABOT_BASE_URL=https://openrouter.ai/api/v1   # or http://localhost:11434/v1 for Ollama
+QABOT_API_KEY=<your-key>
+QABOT_MODEL=openai/gpt-4o-mini
+
+# 3) Anthropic
+QABOT_PROVIDER=anthropic
+QABOT_API_KEY=<your-key>
+QABOT_MODEL=claude-sonnet-4-6
+```
+
+Keys are read only from the environment and sent only to the chosen provider's
+endpoint — never logged, printed, or committed.
+
+---
+
 ## CI/CD integration
 
 QAbot ships a ready-to-use GitHub Actions workflow ([`.github/workflows/qa-gate.yml`](.github/workflows/qa-gate.yml)) — one workflow, two triggers:
@@ -163,7 +198,7 @@ Egress for notifications is operator-configured (your webhook, `api.github.com`)
 - The trend is established by the first scheduled regression (or a manual `qabot . --tier regression`). Until then the smoke gate still enforces coverage and catches newly added criticals.
 - The scheduled job pushes the trend to the default branch; allow GitHub Actions to push (or exempt the bot from branch protection) for the commit to land.
 - Override the smoke test command with `QABOT_SMOKE_CMD` (e.g. `QABOT_SMOKE_CMD="pytest -x tests/unit"`); the parsed coverage relies on a `--cov` term report, which `pyproject.toml`'s `addopts` provides by default.
-- Pick the regression model with `QABOT_MODEL` (default `gemini-2.5-flash-lite`).
+- Pick the regression model/provider with `QABOT_MODEL` / `QABOT_PROVIDER` (default provider `gemini`, model `gemini-2.5-flash-lite`) — see [Choosing a model / provider](#choosing-a-model--provider).
 - Cap the agent's reasoning loop with `QABOT_MAX_ITERATIONS` (default `25`). The scheduled regression sets a smaller value so a rate-limited free-tier run still finishes within the job timeout.
 - The scheduled regression is **best-effort**: it depends on the Gemini free tier, which can be briefly overloaded (`503`) or rate-limited (`429`). It is bounded by `timeout-minutes` and `QABOT_MAX_ITERATIONS` and is allowed to fail without failing the workflow — the blocking quality gate is the LLM-free `smoke` job on pull requests.
 
@@ -199,7 +234,7 @@ The agent runs a **ReAct loop** (Reason + Act): at each iteration it reasons abo
 
 **No framework.** The ReAct loop is implemented from scratch — no LangChain, no LangGraph, no smolagents. Every line is intentional and explainable.
 
-**Gemini 2.5 Flash Lite.** Free tier with enough quota for development and demos. Swappable via the `QABOT_MODEL` environment variable (default `gemini-2.5-flash-lite`) — e.g. `QABOT_MODEL=gemini-2.5-flash`.
+**Provider-agnostic LLM layer.** QAbot is not tied to one vendor. A thin `LLMProvider` abstraction (`qabot/agent/llm.py`) lets it run against **Google Gemini** (the default — generous free tier for development and demos), **any OpenAI-compatible endpoint** (OpenAI, OpenRouter, Together, Groq, or a local Ollama/vLLM), or **Anthropic**. You pick the provider with `QABOT_PROVIDER` and the model with `QABOT_MODEL` — see [Choosing a model / provider](#choosing-a-model--provider). No vendor lock-in.
 
 **CLI first.** No UI. Designed for CI/CD integration — pipe it, script it, automate it.
 

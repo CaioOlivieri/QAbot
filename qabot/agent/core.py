@@ -9,12 +9,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
 
 from qabot import notify
 from qabot.agent.exports import coverage_xml_has_lines, write_exports
-from qabot.agent.prompts import SYSTEM_PROMPT
+from qabot.agent.llm import LLMProvider, get_provider
 from qabot.agent.reconcile import (
     DEFAULT_DRE_WINDOW_DAYS,
     catchable,
@@ -74,20 +72,8 @@ class Findings:
     suspected_bugs: list[dict[str, object]] = field(default_factory=list)
 
 
-def _call_llm(client: genai.Client, messages: list[dict[str, str]]) -> str:
-    contents = [
-        types.Content(role=m["role"], parts=[types.Part(text=m["content"])])
-        for m in messages
-    ]
-    response = client.models.generate_content(
-        model=os.environ.get("QABOT_MODEL", "gemini-2.5-flash-lite"),
-        contents=contents,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            response_mime_type="application/json",
-        ),
-    )
-    return response.text
+def _call_llm(provider: LLMProvider, messages: list[dict[str, str]]) -> str:
+    return provider.complete(messages)
 
 
 _RETRY_429_SLEEP = 60
@@ -95,11 +81,11 @@ _RETRY_503_SLEEP = 10
 _MAX_503_RETRIES = 5
 
 
-def _call_llm_with_retry(client: genai.Client, messages: list[dict[str, str]]) -> str:
+def _call_llm_with_retry(provider: LLMProvider, messages: list[dict[str, str]]) -> str:
     unavailable_retries = 0
     while True:
         try:
-            return _call_llm(client, messages)
+            return _call_llm(provider, messages)
         except Exception as exc:
             exc_text = str(exc)
             if "429" in exc_text or "RESOURCE_EXHAUSTED" in exc_text:
@@ -359,7 +345,7 @@ def _ledger_critical_summary(runs: list[dict[str, object]]) -> tuple[int, set[st
 
 def run_agent(project_path: str) -> str:
     load_dotenv(".env.keys")
-    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    provider = get_provider()
 
     state = AgentState(project_path=project_path)
     findings = Findings()
@@ -378,7 +364,7 @@ def run_agent(project_path: str) -> str:
 
     for iteration in range(state.max_iterations):
         print(f"--- Iteration {iteration} ---")
-        response_text = _call_llm_with_retry(client, messages)
+        response_text = _call_llm_with_retry(provider, messages)
         messages.append({"role": "model", "content": response_text})
 
         try:
