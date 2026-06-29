@@ -14,12 +14,15 @@ pull request must not write the trend of the default branch. The scheduled
 regression run owns generation and trend updates.
 """
 
+import contextlib
 import os
+import tempfile
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from qabot import notify
-from qabot.agent.exports import write_exports
+from qabot.agent.exports import coverage_xml_has_lines, write_exports
 from qabot.agent.report import (
     DEFAULT_THRESHOLDS,
     compute_scores,
@@ -64,10 +67,29 @@ def _smoke_pytest_cmd() -> list[str]:
     return list(DEFAULT_SMOKE_PYTEST)
 
 
-def _measure_coverage(project_path: str) -> dict[str, float]:
-    """Run the existing suite and parse per-module coverage from its output."""
-    _rc, stdout, stderr = run_command(_smoke_pytest_cmd(), cwd=project_path)
-    return parse_coverage(f"{stdout}\n{stderr}")
+def _collect_coverage(project_path: str) -> tuple[dict[str, float], str | None]:
+    """Run the existing suite and collect coverage data.
+
+    Returns the parsed per-module percentages *and* the real line-level
+    ``coverage.xml`` text when ``coverage.py`` produced it (≥1 ``<line>``
+    element), or *None* when no real data is available.
+    """
+    xml_fd, xml_path = tempfile.mkstemp(suffix=".xml", prefix="coverage_")
+    os.close(xml_fd)
+    try:
+        cmd = [*_smoke_pytest_cmd(), f"--cov-report=xml:{xml_path}"]
+        _rc, stdout, stderr = run_command(cmd, cwd=project_path)
+        coverage = parse_coverage(f"{stdout}\n{stderr}")
+        try:
+            real_xml = Path(xml_path).read_text()
+        except OSError:
+            real_xml = None
+        if real_xml is not None and coverage_xml_has_lines(real_xml):
+            return coverage, real_xml
+        return coverage, None
+    finally:
+        with contextlib.suppress(OSError):
+            os.unlink(xml_path)
 
 
 def _source_ast_bugs(source_dir: str) -> list[dict[str, object]]:
@@ -99,7 +121,7 @@ def run_smoke(project_path: str, source_dir: str | None = None) -> SmokeResult:
     """
     source = source_dir or project_path
     ast_bugs = _source_ast_bugs(source)
-    coverage = _measure_coverage(project_path)
+    coverage, real_xml = _collect_coverage(project_path)
 
     state = load_state(project_path)
     runs = state["runs"]
@@ -143,6 +165,7 @@ def run_smoke(project_path: str, source_dir: str | None = None) -> SmokeResult:
         [],
         [],
         DEFAULT_THRESHOLDS,
+        coverage_xml=real_xml,
     )
     print(summarize_diff(diff))
     notify.send(
