@@ -1,13 +1,13 @@
 .PHONY: run test format lint
 
 run:
-	source .venv/bin/activate && python -m qabot $(ARGS)
+	uv run python -m qabot $(ARGS)
 
 test:
-	source .venv/bin/activate && pytest tests/ -v --cov=qabot
+	uv run pytest -v
 
 format:
-	source .venv/bin/activate && ruff format .
+	uv run ruff format .
 
 lint:
-	source .venv/bin/activate && ruff format --check . && ruff check .
+	uv run ruff format --check . && uv run ruff check .
