@@ -216,6 +216,12 @@ def evaluate_gate(
     return verdict, reasons
 
 
+def _thresholds_from_run_meta(run_meta: dict[str, object]) -> dict[str, float]:
+    thresholds = run_meta.get("thresholds", DEFAULT_THRESHOLDS)
+    assert isinstance(thresholds, dict)
+    return thresholds
+
+
 def _section_scorecard(
     scores: dict[str, float],
     diff: dict[str, object],
@@ -246,8 +252,7 @@ def _section_scorecard(
 def _section_metadata(run_meta: dict[str, object]) -> str:
     sha = run_meta.get("commit_sha")
     sha_text = str(sha)[:7] if sha else "n/a"
-    thresholds = run_meta.get("thresholds", DEFAULT_THRESHOLDS)
-    assert isinstance(thresholds, dict)
+    thresholds = _thresholds_from_run_meta(run_meta)
     return (
         f"_Run {run_meta.get('run_id', '?')} · {run_meta.get('timestamp', '?')} · "
         f"commit {sha_text} · thresholds: coverage > "
@@ -333,7 +338,6 @@ def generate_report(
     diff: dict[str, object] | None = None,
     run_meta: dict[str, object] | None = None,
     previous_quality: float | None = None,
-    thresholds: dict[str, float] | None = None,
     reconciliation: dict[str, object] | None = None,
 ) -> str:
     scores = compute_scores(
@@ -343,7 +347,7 @@ def generate_report(
     if diff is not None and run_meta is not None:
         header += [
             _section_scorecard(
-                scores, diff, previous_quality, thresholds or DEFAULT_THRESHOLDS
+                scores, diff, previous_quality, _thresholds_from_run_meta(run_meta)
             ),
             "",
         ]
