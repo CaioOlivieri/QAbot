@@ -27,6 +27,7 @@ from qabot.agent.report import (
     count_new_criticals,
     evaluate_gate,
     generate_report,
+    write_report,
 )
 from qabot.state import current_commit, load_state, record_run, summarize_diff
 from qabot.tools.analyzer import analyze_project_ast
@@ -261,15 +262,6 @@ def _dispatch(
     return f"Unknown tool: {action}"
 
 
-def _write_report(project_path: str, report_md: str) -> str:
-    reports_dir = os.path.join(project_path, "reports")
-    os.makedirs(reports_dir, exist_ok=True)
-    report_path = os.path.join(reports_dir, "qa_report.md")
-    with open(report_path, "w") as f:
-        f.write(report_md)
-    return report_path
-
-
 def _resolve_suspicion(
     findings: Findings, params: dict[str, object], run_output: str
 ) -> str:
@@ -500,7 +492,7 @@ def run_agent(project_path: str) -> str:
         previous_quality=previous_quality,
         reconciliation=reconciliation,
     )
-    report_path = _write_report(project_path, report_md)
+    report_path = write_report(project_path, report_md)
     print(f"Report saved to {report_path}")
 
     real_xml: str | None = None

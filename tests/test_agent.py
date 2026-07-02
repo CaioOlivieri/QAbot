@@ -1,10 +1,10 @@
 from contextlib import contextmanager
-from unittest.mock import mock_open, patch
+from unittest.mock import patch
 
 import pytest
 
 import qabot.agent.core as core
-from qabot.agent.core import _parse_agent_json, _write_report
+from qabot.agent.core import _parse_agent_json
 
 
 @pytest.fixture(autouse=True)
@@ -74,17 +74,6 @@ def test_raises_on_json_array() -> None:
         _parse_agent_json('["not", "an", "object"]')
 
 
-def test_write_report_writes_under_project_path() -> None:
-    m = mock_open()
-    with patch("qabot.agent.core.os.makedirs") as mock_dirs:
-        with patch("builtins.open", m):
-            path = _write_report("/proj", "# report")
-    assert path == "/proj/reports/qa_report.md"
-    mock_dirs.assert_called_once_with("/proj/reports", exist_ok=True)
-    m.assert_called_once_with("/proj/reports/qa_report.md", "w")
-    m.return_value.write.assert_called_once_with("# report")
-
-
 _ACTION = '{"thought": "look around", "action": "list_files", "action_input": "."}'
 _FINAL = '{"thought": "done", "final_answer": "analysis complete"}'
 _INVALID = "this is not json"
@@ -119,7 +108,7 @@ def _patched_agent(monkeypatch, responses, dispatch_result="tool output"):
         patch.object(core, "_call_llm", side_effect=responses) as call_llm,
         patch.object(core, "_dispatch", return_value=dispatch_result) as dispatch,
         patch.object(core, "generate_report", return_value="# report") as generate,
-        patch.object(core, "_write_report", return_value="report.md") as write,
+        patch.object(core, "write_report", return_value="report.md") as write,
         patch.object(core, "current_commit", return_value=None),
         patch.object(core, "record_run", return_value=(_STUB_STATE, _EMPTY_DIFF)),
         patch.object(core, "write_exports", return_value=[]),
@@ -212,7 +201,7 @@ def test_tool_error_does_not_crash_run(monkeypatch) -> None:
         patch.object(core, "_call_llm", side_effect=[_ACTION, _FINAL]),
         patch.object(core, "_dispatch", side_effect=RuntimeError("boom")) as dispatch,
         patch.object(core, "generate_report", return_value="# report"),
-        patch.object(core, "_write_report", return_value="report.md"),
+        patch.object(core, "write_report", return_value="report.md"),
         patch.object(core, "current_commit", return_value=None),
         patch.object(core, "record_run", return_value=(_STUB_STATE, _EMPTY_DIFF)),
         patch.object(core, "write_exports", return_value=[]),

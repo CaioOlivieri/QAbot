@@ -1,7 +1,8 @@
 import re
+from unittest.mock import mock_open, patch
 
 from qabot.agent.reconcile import EscapeRate
-from qabot.agent.report import compute_scores, generate_report
+from qabot.agent.report import compute_scores, generate_report, write_report
 
 
 def _bug(status: str, severity: str = "critical") -> dict[str, object]:
@@ -263,3 +264,14 @@ def test_report_dre_no_defects_in_window() -> None:
     )
     assert "No critical defects recorded" in report
     assert "last 30 days" in report
+
+
+def test_write_report_writes_under_project_path() -> None:
+    m = mock_open()
+    with patch("qabot.agent.report.os.makedirs") as mock_dirs:
+        with patch("builtins.open", m):
+            path = write_report("/proj", "# report")
+    assert path == "/proj/reports/qa_report.md"
+    mock_dirs.assert_called_once_with("/proj/reports", exist_ok=True)
+    m.assert_called_once_with("/proj/reports/qa_report.md", "w")
+    m.return_value.write.assert_called_once_with("# report")
