@@ -11,7 +11,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from qabot import notify
-from qabot.agent.exports import coverage_xml_has_lines, write_exports
+from qabot.agent.exports import write_exports
 from qabot.agent.llm import LLMProvider, get_provider
 from qabot.agent.reconcile import (
     DEFAULT_DRE_WINDOW_DAYS,
@@ -507,9 +507,7 @@ def run_agent(project_path: str) -> str:
         findings.dynamic_bugs,
         findings.suspected_bugs,
         DEFAULT_THRESHOLDS,
-        coverage_xml=real_xml
-        if real_xml and coverage_xml_has_lines(real_xml)
-        else None,
+        coverage_xml=real_xml,
     )
     print(f"Exports: {', '.join(os.path.basename(p) for p in export_paths)}")
     print(summarize_diff(diff))
