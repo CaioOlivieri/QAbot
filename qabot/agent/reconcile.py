@@ -91,6 +91,16 @@ def qa_observation_start(runs: list[dict[str, object]]) -> str | None:
     return min(observed) if observed else None
 
 
+def _within_anchor(bug: ProductionBug, cutoff: datetime | None) -> bool:
+    """The #46 time-anchor test: is ``bug`` reported at/after ``cutoff``?
+
+    ``cutoff`` of ``None`` means there is nothing to anchor against, so every
+    bug passes — the single source of truth for the time-based fallback shared
+    by :func:`catchable` and :func:`catchable_with_provenance`.
+    """
+    return cutoff is None or _parse_time(bug.created_at) >= cutoff
+
+
 def catchable(bugs: list[ProductionBug], anchor_iso: str | None) -> list[ProductionBug]:
     """Bugs QA had a real chance to catch: reported at/after it began observing.
 
@@ -104,14 +114,13 @@ def catchable(bugs: list[ProductionBug], anchor_iso: str | None) -> list[Product
     history and line-level blame, so this function approximates it with the
     issue's report time against the first observed run. The SZZ-based version is
     implemented in :func:`catchable_with_provenance` (backed by
-    ``qabot.tools.git_blame``), which uses this time anchor as its graceful
-    fallback. When ``anchor_iso`` is ``None`` we cannot anchor and return all bugs
-    unchanged, so escapes are never silently dropped.
+    ``qabot.tools.git_blame``), which uses this time anchor (via
+    :func:`_within_anchor`) as its graceful fallback. When ``anchor_iso`` is
+    ``None`` we cannot anchor and return all bugs unchanged, so escapes are
+    never silently dropped.
     """
-    if anchor_iso is None:
-        return list(bugs)
-    cutoff = _parse_time(anchor_iso)
-    return [bug for bug in bugs if _parse_time(bug.created_at) >= cutoff]
+    cutoff = _parse_time(anchor_iso) if anchor_iso is not None else None
+    return [bug for bug in bugs if _within_anchor(bug, cutoff)]
 
 
 def catchable_with_provenance(
@@ -127,9 +136,12 @@ def catchable_with_provenance(
     commit QA analyzed (i.e. the defective code existed in a revision QA saw). A
     bug present in the map is catchable iff its introducing commit is reachable;
     a bug **absent** from the map (its provenance could not be resolved from git)
-    falls back to the lightweight time-anchor of :func:`catchable`. This makes the
-    rigorous commit-level signal the primary anchor and the report-time proxy the
-    graceful fallback, so escapes are never silently dropped.
+    falls back to :func:`_within_anchor` — the same time-anchor test
+    :func:`catchable` applies, so there is exactly one implementation of the #46
+    fallback. This makes the rigorous commit-level signal the primary anchor and
+    the report-time proxy the graceful fallback, so escapes are never silently
+    dropped. A per-bug loop (rather than delegating to :func:`catchable` on a
+    filtered sublist) is what keeps the result in the caller's original order.
     """
     cutoff = _parse_time(anchor_iso) if anchor_iso is not None else None
     result: list[ProductionBug] = []
@@ -137,7 +149,7 @@ def catchable_with_provenance(
         if bug.number in provenance:
             if provenance[bug.number]:
                 result.append(bug)
-        elif cutoff is None or _parse_time(bug.created_at) >= cutoff:
+        elif _within_anchor(bug, cutoff):
             result.append(bug)
     return result
 
