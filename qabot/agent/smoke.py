@@ -18,7 +18,7 @@ import contextlib
 import os
 import tempfile
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 from qabot import notify
@@ -53,7 +53,6 @@ class SmokeResult:
     verdict: str
     reasons: list[str]
     report_md: str
-    coverage: dict[str, float] = field(default_factory=dict)
 
     @property
     def passed(self) -> bool:
@@ -179,4 +178,4 @@ def run_smoke(project_path: str, source_dir: str | None = None) -> SmokeResult:
             coverage=scores["coverage"],
         )
     )
-    return SmokeResult(verdict, reasons, report_md, coverage)
+    return SmokeResult(verdict, reasons, report_md)

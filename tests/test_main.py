@@ -21,7 +21,7 @@ def test_main_runs_agent_and_prints_result(capsys) -> None:
 
 
 def test_smoke_tier_pass_returns_0(capsys) -> None:
-    passing = SmokeResult("PASS", [], "# report", {})
+    passing = SmokeResult("PASS", [], "# report")
     with patch.object(main_mod.sys, "argv", ["qabot", "/proj", "--tier", "smoke"]):
         with patch.object(main_mod, "run_smoke", return_value=passing) as run_smoke:
             rc = main_mod.main()
@@ -31,7 +31,7 @@ def test_smoke_tier_pass_returns_0(capsys) -> None:
 
 
 def test_smoke_tier_fail_returns_1_with_reasons(capsys) -> None:
-    failing = SmokeResult("FAIL", ["coverage 50.0% ≤ 80%"], "# report", {})
+    failing = SmokeResult("FAIL", ["coverage 50.0% ≤ 80%"], "# report")
     argv = ["qabot", "/proj", "--tier", "smoke", "--source", "qabot"]
     with patch.object(main_mod.sys, "argv", argv):
         with patch.object(main_mod, "run_smoke", return_value=failing) as run_smoke:
