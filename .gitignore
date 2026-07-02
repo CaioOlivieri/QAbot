@@ -53,7 +53,13 @@ htmlcov/
 # =============================================================================
 # qabot — outputs gerados pelo agente
 # =============================================================================
-reports/
+# reports/* (e não reports/): o git não re-inclui o filho de um DIRETÓRIO
+# excluído, então a exceção abaixo exige ignorar o conteúdo, não o diretório.
+# O ledger é versionado de propósito: o job noturno (qa-gate.yml) commita o
+# trend de defeitos de volta ao main — ele contém apenas metadados de achados,
+# nunca segredos.
+reports/*
+!reports/qabot_state.json
 
 # =============================================================================
 # IDEs
