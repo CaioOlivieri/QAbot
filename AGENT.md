@@ -99,6 +99,13 @@ change, agents must read:
 1. `wiki/_estado-de-integracao.md` — single source of truth on what is wired
 2. `wiki/_schema.md` — discipline rules for this wiki
 
+Dev tooling: `scripts/export_context.py` dumps the whole repo (`.py`/`.md`/`.json`/
+`.toml`/`.txt`, secrets and `.venv`/`reports`/etc. excluded) into one
+`reports/estado_projeto_*.md` snapshot — a manual way to hand the full repo state
+to an AI agent when it cannot read the working tree directly. Not part of the
+shipped `qabot` package; no tests, run manually. See
+`wiki/padroes/harness-handoff.md`.
+
 Discipline rule (QAbot): only assert test/coverage/behavior based on real
 execution output saved in `wiki/raw/` — never by inference.
 When learning something durable, do ingest: update the page and `_indice.md`.
