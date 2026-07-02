@@ -1,3 +1,4 @@
+import os
 import statistics
 
 
@@ -381,3 +382,17 @@ def generate_report(
         _section_suspected(suspected_bugs),
     ]
     return "\n".join(header + body)
+
+
+def write_report(project_path: str, report_md: str) -> str:
+    """Write *report_md* to ``<project_path>/reports/qa_report.md``.
+
+    Shared by both tiers (regression and smoke) so the report path is owned in
+    one place. Returns the path written.
+    """
+    reports_dir = os.path.join(project_path, "reports")
+    os.makedirs(reports_dir, exist_ok=True)
+    report_path = os.path.join(reports_dir, "qa_report.md")
+    with open(report_path, "w") as f:
+        f.write(report_md)
+    return report_path

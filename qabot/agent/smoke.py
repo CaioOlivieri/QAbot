@@ -29,6 +29,7 @@ from qabot.agent.report import (
     count_new_criticals,
     evaluate_gate,
     generate_report,
+    write_report,
 )
 from qabot.state import compute_diff, current_commit, load_state, summarize_diff
 from qabot.tools.analyzer import analyze_file_ast
@@ -101,15 +102,6 @@ def _source_ast_bugs(source_dir: str) -> list[dict[str, object]]:
     return bugs
 
 
-def _write_smoke_report(project_path: str, report_md: str) -> str:
-    reports_dir = os.path.join(project_path, "reports")
-    os.makedirs(reports_dir, exist_ok=True)
-    report_path = os.path.join(reports_dir, "qa_report.md")
-    with open(report_path, "w") as f:
-        f.write(report_md)
-    return report_path
-
-
 def run_smoke(project_path: str, source_dir: str | None = None) -> SmokeResult:
     """Run the deterministic gate: AST + existing suite + ledger diff + verdict.
 
@@ -156,7 +148,7 @@ def run_smoke(project_path: str, source_dir: str | None = None) -> SmokeResult:
         run_meta=run_meta,
         previous_quality=previous_quality,
     )
-    _write_smoke_report(project_path, report_md)
+    write_report(project_path, report_md)
     write_exports(
         os.path.join(project_path, "reports"),
         coverage,
