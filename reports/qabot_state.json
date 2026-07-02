@@ -1,0 +1,19 @@
+{
+  "runs": [
+    {
+      "commit_sha": "c2107f0cba9c3d580358b4c8fc28e466abaa34bc",
+      "coverage": {},
+      "findings": [],
+      "run_id": "r1",
+      "scores": {
+        "api": 100.0,
+        "bug": 100.0,
+        "coverage": 0.0,
+        "quality": 60.0
+      },
+      "timestamp": "2026-07-02T04:01:27Z"
+    }
+  ],
+  "target": "/home/runner/work/QAbot/QAbot",
+  "version": 1
+}
