@@ -33,15 +33,6 @@ def test_within_window_filters_old_bugs() -> None:
     assert [b.number for b in kept] == [1]
 
 
-def test_count_critical() -> None:
-    bugs = [
-        _bug(severity="critical"),
-        _bug(severity="warning"),
-        _bug(severity="critical"),
-    ]
-    assert reconcile.count_critical(bugs) == 2
-
-
 def test_escape_rate_math() -> None:
     result = reconcile.escape_rate(caught=9, escaped=1)
     assert result.escape_rate == 10.0

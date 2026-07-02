@@ -75,10 +75,6 @@ def within_window(
     return [bug for bug in bugs if _parse_time(bug.created_at) >= cutoff]
 
 
-def count_critical(bugs: list[ProductionBug]) -> int:
-    return sum(1 for bug in bugs if bug.severity == "critical")
-
-
 def qa_observation_start(runs: list[dict[str, object]]) -> str | None:
     """Earliest run timestamp at which QA analyzed a known commit, or ``None``.
 
