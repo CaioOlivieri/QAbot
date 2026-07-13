@@ -249,6 +249,110 @@
         "quality": 50.400000000000006
       },
       "timestamp": "2026-07-12T05:58:33Z"
+    },
+    {
+      "commit_sha": "976c4c9735c0fc5396ad2bcc09241082ae332ee7",
+      "coverage": {},
+      "findings": [
+        {
+          "category": "broad_except",
+          "description": "Overly broad except (Exception)",
+          "file": "./scripts/export_context.py",
+          "fingerprint": "static:./scripts/export_context.py:63:broad_except",
+          "line": 63,
+          "severity": "warning",
+          "source": "static",
+          "status": "existing"
+        },
+        {
+          "category": "broad_except",
+          "description": "Overly broad except (Exception)",
+          "file": "./qabot/notify.py",
+          "fingerprint": "static:./qabot/notify.py:94:broad_except",
+          "line": 94,
+          "severity": "warning",
+          "source": "static",
+          "status": "existing"
+        },
+        {
+          "category": "broad_except",
+          "description": "Overly broad except (Exception)",
+          "file": "./qabot/notify.py",
+          "fingerprint": "static:./qabot/notify.py:164:broad_except",
+          "line": 164,
+          "severity": "warning",
+          "source": "static",
+          "status": "existing"
+        },
+        {
+          "category": "broad_except",
+          "description": "Overly broad except (Exception)",
+          "file": "./qabot/agent/core.py",
+          "fingerprint": "static:./qabot/agent/core.py:91:broad_except",
+          "line": 91,
+          "severity": "warning",
+          "source": "static",
+          "status": "existing"
+        },
+        {
+          "category": "broad_except",
+          "description": "Overly broad except (Exception)",
+          "file": "./qabot/agent/core.py",
+          "fingerprint": "static:./qabot/agent/core.py:401:broad_except",
+          "line": 401,
+          "severity": "warning",
+          "source": "static",
+          "status": "existing"
+        },
+        {
+          "category": "broad_except",
+          "description": "Overly broad except (Exception)",
+          "file": "./qabot/tools/api.py",
+          "fingerprint": "static:./qabot/tools/api.py:152:broad_except",
+          "line": 152,
+          "severity": "warning",
+          "source": "static",
+          "status": "existing"
+        },
+        {
+          "category": "broad_except",
+          "description": "Overly broad except (Exception)",
+          "file": "./qabot/tools/github.py",
+          "fingerprint": "static:./qabot/tools/github.py:104:broad_except",
+          "line": 104,
+          "severity": "warning",
+          "source": "static",
+          "status": "existing"
+        },
+        {
+          "category": "broad_except",
+          "description": "Overly broad except (Exception)",
+          "file": "./qabot/tools/github.py",
+          "fingerprint": "static:./qabot/tools/github.py:165:broad_except",
+          "line": 165,
+          "severity": "warning",
+          "source": "static",
+          "status": "existing"
+        },
+        {
+          "category": "semantic",
+          "description": "The `else` branch in `parse_pytest_failures` is not correctly reached for `AssertionError`s originating from test files (`basename` starts with `test_`) when their description does not contain comparison operators ('==', 'in', 'is'). This leads to an incorrect 'critical' severity classification instead of 'warning' as intended by the logic flow.",
+          "file": "./qabot/tools/runner.py",
+          "fingerprint": "semantic:./qabot/tools/runner.py:68:semantic",
+          "line": 68,
+          "severity": "critical",
+          "source": "semantic",
+          "status": "new"
+        }
+      ],
+      "run_id": "r13",
+      "scores": {
+        "api": 100.0,
+        "bug": 66.0,
+        "coverage": 0.0,
+        "quality": 46.400000000000006
+      },
+      "timestamp": "2026-07-13T06:19:01Z"
     }
   ],
   "target": "/home/runner/work/QAbot/QAbot",
