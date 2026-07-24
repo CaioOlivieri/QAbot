@@ -800,6 +800,103 @@
         "quality": 60.0
       },
       "timestamp": "2026-07-23T05:52:10Z"
+    },
+    {
+      "commit_sha": "83bea5eff3d6d67941738e428f7725e2ec876744",
+      "coverage": {
+        "qabot/__init__.py": 100.0,
+        "qabot/agent/__init__.py": 100.0,
+        "qabot/agent/exports.py": 100.0,
+        "qabot/agent/llm.py": 100.0,
+        "qabot/agent/prompts.py": 100.0,
+        "qabot/agent/reconcile.py": 100.0,
+        "qabot/agent/smoke.py": 100.0,
+        "qabot/tools/__init__.py": 100.0,
+        "qabot/tools/api.py": 100.0,
+        "qabot/tools/fs.py": 100.0,
+        "qabot/tools/git_blame.py": 100.0,
+        "qabot/tools/github.py": 100.0
+      },
+      "findings": [
+        {
+          "category": "broad_except",
+          "description": "Overly broad except (Exception)",
+          "file": "qabot/notify.py",
+          "fingerprint": "static:qabot/notify.py:94:broad_except",
+          "line": 94,
+          "severity": "warning",
+          "source": "static",
+          "status": "regressed"
+        },
+        {
+          "category": "broad_except",
+          "description": "Overly broad except (Exception)",
+          "file": "qabot/notify.py",
+          "fingerprint": "static:qabot/notify.py:164:broad_except",
+          "line": 164,
+          "severity": "warning",
+          "source": "static",
+          "status": "regressed"
+        },
+        {
+          "category": "broad_except",
+          "description": "Overly broad except (Exception)",
+          "file": "qabot/tools/github.py",
+          "fingerprint": "static:qabot/tools/github.py:104:broad_except",
+          "line": 104,
+          "severity": "warning",
+          "source": "static",
+          "status": "regressed"
+        },
+        {
+          "category": "broad_except",
+          "description": "Overly broad except (Exception)",
+          "file": "qabot/tools/github.py",
+          "fingerprint": "static:qabot/tools/github.py:165:broad_except",
+          "line": 165,
+          "severity": "warning",
+          "source": "static",
+          "status": "regressed"
+        },
+        {
+          "category": "broad_except",
+          "description": "Overly broad except (Exception)",
+          "file": "qabot/tools/api.py",
+          "fingerprint": "static:qabot/tools/api.py:152:broad_except",
+          "line": 152,
+          "severity": "warning",
+          "source": "static",
+          "status": "regressed"
+        },
+        {
+          "category": "broad_except",
+          "description": "Overly broad except (Exception)",
+          "file": "qabot/agent/core.py",
+          "fingerprint": "static:qabot/agent/core.py:91:broad_except",
+          "line": 91,
+          "severity": "warning",
+          "source": "static",
+          "status": "regressed"
+        },
+        {
+          "category": "broad_except",
+          "description": "Overly broad except (Exception)",
+          "file": "qabot/agent/core.py",
+          "fingerprint": "static:qabot/agent/core.py:401:broad_except",
+          "line": 401,
+          "severity": "warning",
+          "source": "static",
+          "status": "regressed"
+        }
+      ],
+      "run_id": "r24",
+      "scores": {
+        "api": 100.0,
+        "bug": 79.0,
+        "coverage": 0.0,
+        "quality": 51.6
+      },
+      "timestamp": "2026-07-24T05:51:38Z"
     }
   ],
   "target": "/home/runner/work/QAbot/QAbot",
