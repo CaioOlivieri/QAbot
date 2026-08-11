@@ -1562,6 +1562,32 @@
         "quality": 51.6
       },
       "timestamp": "2026-08-10T04:29:43Z"
+    },
+    {
+      "commit_sha": "5585e7950f40deac168fb181d0ae4e1446485548",
+      "coverage": {
+        "qabot/__init__.py": 100.0,
+        "qabot/agent/__init__.py": 100.0,
+        "qabot/agent/exports.py": 100.0,
+        "qabot/agent/llm.py": 100.0,
+        "qabot/agent/prompts.py": 100.0,
+        "qabot/agent/reconcile.py": 100.0,
+        "qabot/agent/smoke.py": 100.0,
+        "qabot/tools/__init__.py": 100.0,
+        "qabot/tools/api.py": 100.0,
+        "qabot/tools/fs.py": 100.0,
+        "qabot/tools/git_blame.py": 100.0,
+        "qabot/tools/github.py": 100.0
+      },
+      "findings": [],
+      "run_id": "r42",
+      "scores": {
+        "api": 100.0,
+        "bug": 100.0,
+        "coverage": 0.0,
+        "quality": 60.0
+      },
+      "timestamp": "2026-08-11T04:18:06Z"
     }
   ],
   "target": "/home/runner/work/QAbot/QAbot",
