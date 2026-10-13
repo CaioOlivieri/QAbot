@@ -4010,6 +4010,30 @@
         "quality": 60.0
       },
       "timestamp": "2026-10-12T10:14:12Z"
+    },
+    {
+      "commit_sha": "d06434520273c07ecfb9e506112d18a0cf86ec3c",
+      "coverage": {},
+      "findings": [
+        {
+          "category": "semantic",
+          "description": "`_contain_in_root` does not correctly prevent directory traversal (e.g., using `../` or absolute paths not directly under the root). It returns non-None paths for locations outside the project root, allowing `read_file` or `write_file` to access/modify arbitrary files. The `os.path.abspath(candidate)` resolves traversal attempts, but the subsequent `target == root or target.startswith(root + os.sep)` check fails to correctly identify when `target` is outside the intended `root`.",
+          "file": "qabot/agent/core.py",
+          "fingerprint": "semantic:qabot/agent/core.py:177:semantic",
+          "line": 177,
+          "severity": "critical",
+          "source": "semantic",
+          "status": "new"
+        }
+      ],
+      "run_id": "r103",
+      "scores": {
+        "api": 100.0,
+        "bug": 90.0,
+        "coverage": 0.0,
+        "quality": 56.0
+      },
+      "timestamp": "2026-10-13T10:09:51Z"
     }
   ],
   "target": "/home/runner/work/QAbot/QAbot",
